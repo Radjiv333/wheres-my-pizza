@@ -29,7 +29,7 @@ type OrderItem struct {
 }
 
 type PutOrderResponse struct {
-	OrderNumber string
-	Status      string
-	TotalAmount float64
+	OrderNumber string  `json:"order_number"`
+	Status      string  `json:"status"`
+	TotalAmount float64 `json:"total_amount"`
 }

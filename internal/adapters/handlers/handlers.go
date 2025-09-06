@@ -14,10 +14,13 @@ func PostOrder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Cannot decode the order", http.StatusBadRequest)
 	}
 	defer r.Body.Close()
-	
-	
+
 	response := domain.PutOrderResponse{OrderNumber: "", Status: "", TotalAmount: 234.234}
 
-	w.Write()
+	responseByte, err := json.Marshal(response)
+	if err != nil {
+		
+	}
+	w.Write(responseByte)
 	w.WriteHeader(http.StatusOK)
 }
