@@ -1,0 +1,47 @@
+package services
+
+import (
+	"errors"
+	"fmt"
+
+	"wheres-my-pizza/internal/core/utils.go"
+)
+
+func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartbeatInterval, prefetch int) error {
+	switch mode {
+	case "order-service":
+		if err := utils.CheckPort(port); err != nil {
+			return err
+		}
+		if maxConcurrent > 100 || maxConcurrent <= 0 {
+			errMessage := fmt.Sprintf("invalid 'max-concurrent' value: %d", maxConcurrent)
+			return errors.New(errMessage)
+		}
+	case "kitchen-worker":
+		if workerName == "" {
+			errMessage := "'worker-name' value cannot be empty"
+			return errors.New(errMessage)
+		}
+		if !(orderTypes == "dine_in" || orderTypes == "delivery" || orderTypes == "takeout") {
+			errMessage := fmt.Sprintf("invalid 'order-types' value: %s", orderTypes)
+			return errors.New(errMessage)
+		}
+		if heartbeatInterval > 50 || heartbeatInterval <= 0 {
+			errMessage := fmt.Sprintf("invalid 'heartbeat-interval' value: %d", heartbeatInterval)
+			return errors.New(errMessage)
+		}
+		if prefetch > 10 || prefetch <= 0 {
+			errMessage := fmt.Sprintf("invalid 'prefetch' value: %d", prefetch)
+			return errors.New(errMessage)
+		}
+	case "tracking-service":
+		if err := utils.CheckPort(port); err != nil {
+			return err
+		}
+	case "notification-subscriber":
+	default:
+		errMessage := fmt.Sprintf("invalid mode' value: %s", mode)
+		return errors.New(errMessage)
+	}
+	return nil
+}
