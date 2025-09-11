@@ -32,3 +32,8 @@ create table order_status_log (
     "changed_at"  timestamptz   default current_timestamp,
     "notes"       text
 );
+
+create table if not exists order_number_seq (
+  day date PRIMARY KEY,
+  seq bigint NOT NULL
+);
