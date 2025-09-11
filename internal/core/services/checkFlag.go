@@ -7,13 +7,13 @@ import (
 	"wheres-my-pizza/internal/core/utils.go"
 )
 
-func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartbeatInterval, prefetch int) error {
+func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartbeatInterval, prefetch int, isSetByUser bool) error {
 	switch mode {
 	case "order-service":
-		if err := utils.CheckPort(port); err != nil {
+		if err := utils.CheckPort(port, isSetByUser); err != nil {
 			return err
 		}
-		if maxConcurrent > 100 || maxConcurrent <= 0 {
+		if maxConcurrent <= 0 || maxConcurrent > 100 {
 			errMessage := fmt.Sprintf("invalid 'max-concurrent' value: %d", maxConcurrent)
 			return errors.New(errMessage)
 		}
@@ -35,7 +35,7 @@ func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartb
 			return errors.New(errMessage)
 		}
 	case "tracking-service":
-		if err := utils.CheckPort(port); err != nil {
+		if err := utils.CheckPort(port, isSetByUser); err != nil {
 			return err
 		}
 	case "notification-subscriber":

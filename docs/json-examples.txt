@@ -1,0 +1,8 @@
+{
+  "customer_name": "John Doe",
+  "order_type": "takeout",
+  "items": [
+    { "name": "Margherita Pizza", "quantity": 1, "price": 15.99 },
+    { "name": "Caesar Salad", "quantity": 1, "price": 8.99 }
+  ]
+}
