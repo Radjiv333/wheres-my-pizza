@@ -7,7 +7,7 @@ var appUsage string = `Usage:
   ./restaurant-system --help
 
 Options:
-  --help       Show this screen.
+  --help                  Show this screen.
   --mode S                Required. Restaurant mode. Possible mode options (S): "order-service", "kitchen-worker", "tracking-service", "notification-subscriber".
 
 'Order-service' service Options:
@@ -15,7 +15,7 @@ Options:
   
 'Kitchen-worker' service Options:
   --worker-name S         Required. Establishes unique name for the worker.
-  --order-types S         Optional. Comma-separated list of order types the worker can handle (e.g., dine_in,takeout). If omitted, handles all.
+  --order-types S         Optional. Comma-separated list of order types the worker can handle (e.g., dine_in, takeout and delivery). If omitted, handles all.
   --heartbeat-interval N  Default: 30s. Interval (seconds) between heartbeats.
   --prefetch N            Default: 1. RabbitMQ prefetch count, limiting how many messages the worker receives at once.  
   
