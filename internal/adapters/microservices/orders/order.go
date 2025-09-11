@@ -1,7 +1,6 @@
 package order
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +14,6 @@ type OrderService struct {
 	maxConcurrent int
 	port          int
 	repo          *domain.Repository
-	ctx           context.Context
 }
 
 var _ ports.OrderServiceInterface = (*OrderService)(nil)
@@ -29,6 +27,7 @@ func (o *OrderService) Stop() {
 }
 
 func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	var order domain.Order
 	err := json.NewDecoder(r.Body).Decode(&order)
 	if err != nil {
@@ -39,22 +38,22 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Get a pooled connection for transactional work
-	conn, err := o.repo.Conn.Acquire(o.ctx)
+	conn, err := o.repo.Conn.Acquire(ctx)
 	if err != nil {
 		http.Error(w, "DB unavailable", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Release()
 
-	tx, err := conn.Begin(o.ctx)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
 		http.Error(w, "Cannot begin transaction", http.StatusInternalServerError)
 		return
 	}
-	defer tx.Rollback(o.ctx)
+	defer tx.Rollback(ctx)
 
 	// Generate order number inside the transaction
-	orderNumber, err := services.GenerateOrderNumber(o.ctx, tx)
+	orderNumber, err := services.GenerateOrderNumber(ctx, tx)
 	if err != nil {
 		http.Error(w, "Cannot generate order number", http.StatusInternalServerError)
 		return
@@ -69,7 +68,7 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 		RETURNING id;
 	`
 	var orderID int
-	err = tx.QueryRow(o.ctx, insertOrderSQL,
+	err = tx.QueryRow(ctx, insertOrderSQL,
 		orderNumber,
 		order.CustomerName,
 		order.Type,
@@ -92,7 +91,7 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 		VALUES ($1, $2, $3, $4);
 	`
 	for _, item := range order.Items {
-		if _, err := tx.Exec(o.ctx, insertItemSQL, orderID, item.Name, item.Quantity, item.Price); err != nil {
+		if _, err := tx.Exec(ctx, insertItemSQL, orderID, item.Name, item.Quantity, item.Price); err != nil {
 			http.Error(w, "Cannot insert order item", http.StatusInternalServerError)
 			return
 		}
@@ -103,12 +102,12 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO order_status_log (order_id, status, changed_by, notes)
 		VALUES ($1, $2, $3, $4);
 	`
-	if _, err := tx.Exec(o.ctx, insertStatusLogSQL, orderID, "received", order.ProcessedBy, "Order created"); err != nil {
+	if _, err := tx.Exec(ctx, insertStatusLogSQL, orderID, "received", order.ProcessedBy, "Order created"); err != nil {
 		http.Error(w, "Cannot insert status log", http.StatusInternalServerError)
 		return
 	}
 
-	if err := tx.Commit(o.ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		http.Error(w, "Commit failed", http.StatusInternalServerError)
 		return
 	}
