@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/config"
 
@@ -14,6 +15,8 @@ import (
 type Repository struct {
 	Conn *pgxpool.Pool
 }
+
+var _ ports.RepositoryInterface = (*Repository)(nil)
 
 // "postgres://username:password@localhost:5432/database_name"
 func NewRepository(cfg config.Config) (*Repository, error) {

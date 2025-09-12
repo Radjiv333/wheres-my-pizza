@@ -12,6 +12,7 @@ import (
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/microservices/order"
+	rabbitmq "wheres-my-pizza/internal/adapters/rabbit-mq"
 
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/config"
@@ -33,7 +34,17 @@ func main() {
 	}
 	// INFO LOGGER
 
-	
+	// Initializing rabbitmq
+	rabbit, err := rabbitmq.NewRabbitMq()
+	if err != nil {
+		// ERROR LOGGER
+		log.Fatalf("cannot connect to rabbitmq: %v", err)
+	}
+	err = rabbit.SetupRabbitMQ()
+	if err != nil {
+		// ERROR LOGGER
+		log.Fatalf("cannot setup the rabbitmq: %v", err)
+	}
 
 	// Parsing flags
 	flags, err := services.FlagParse()
@@ -47,7 +58,7 @@ func main() {
 	defer stop()
 
 	// Initializing Order-service Handler
-	orderHandler := order.NewOrderHandler(repo, flags.MaxConcurrent, flags.Port)
+	orderHandler := order.NewOrderHandler(repo, rabbit, flags.MaxConcurrent, flags.Port)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /orders", orderHandler.PostOrder)

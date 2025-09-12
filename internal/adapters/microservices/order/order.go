@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
+	rabbitmq "wheres-my-pizza/internal/adapters/rabbit-mq"
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
@@ -15,12 +16,13 @@ type OrderService struct {
 	maxConcurrent int
 	port          int
 	repo          *repository.Repository
+	rabbit        *rabbitmq.Rabbit
 }
 
 var _ ports.OrderServiceInterface = (*OrderService)(nil)
 
-func NewOrderHandler(repo *repository.Repository, maxConcurrent, port int) *OrderService {
-	return &OrderService{maxConcurrent: maxConcurrent, port: port, repo: repo}
+func NewOrderHandler(repo *repository.Repository, rabbit *rabbitmq.Rabbit, maxConcurrent, port int) *OrderService {
+	return &OrderService{maxConcurrent: maxConcurrent, rabbit: rabbit, port: port, repo: repo}
 }
 
 func (o *OrderService) Stop() {
@@ -49,6 +51,13 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// ERROR LOGGER
 		http.Error(w, "Cannot insert the order to db: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = o.rabbit.PublishOrderMessage(ctx, order)
+	if err != nil {
+		// ERROR LOGGER
+		http.Error(w, "Cannot publish order message: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
