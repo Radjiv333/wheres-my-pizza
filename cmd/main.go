@@ -25,6 +25,7 @@ func main() {
 	}
 	// INFO LOGGER
 
+	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
 		// ERROR LOGGER
@@ -32,6 +33,9 @@ func main() {
 	}
 	// INFO LOGGER
 
+	
+
+	// Parsing flags
 	flags, err := services.FlagParse()
 	if err != nil {
 		// ERROR LOGGER
@@ -42,12 +46,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Getting Order-service Handler
+	// Initializing Order-service Handler
 	orderHandler := order.NewOrderHandler(repo, flags.MaxConcurrent, flags.Port)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /orders", orderHandler.PostOrder)
-
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", flags.Port),
 		Handler: mux,

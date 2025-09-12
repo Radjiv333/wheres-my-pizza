@@ -8,6 +8,7 @@ import (
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
+	"wheres-my-pizza/internal/core/services"
 )
 
 type OrderService struct {
@@ -37,9 +38,17 @@ func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	err = services.CheckOrderValues(order)
+	if err != nil {
+		// ERROR LOGGER
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	orderNumber, err := o.repo.InsertOrder(ctx, &order)
 	if err != nil {
-		http.Error(w, "Cannot insert the order to db: "+err.Error(), http.StatusBadRequest)
+		// ERROR LOGGER
+		http.Error(w, "Cannot insert the order to db: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
