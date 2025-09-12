@@ -1,1 +1,1 @@
-docker exec -it 626344b8da5f psql -U postgres -d rsshub -h localhost -p 5432
+docker exec -it 7dd26accfe69 psql -U restaurant_user -d restaurant_db -h localhost -p 5432

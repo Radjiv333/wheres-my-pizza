@@ -63,6 +63,9 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 		order.TotalAmount += float64(item.Quantity) * item.Price
 	}
 
+	// Calculating order's priority based on total_amount
+	order.Priority = services.AssignPriority(*order)
+
 	// Example insert into orders table
 	const insertOrderSQL = `
 		INSERT INTO orders (
