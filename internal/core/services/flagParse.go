@@ -39,9 +39,10 @@ func FlagParse() (Flags, error) {
 		os.Exit(0)
 	}
 
+	// Checking for flag values
 	err := CheckFlags(*mode, *workerName, *orderTypes, *port, *maxConcurrent, *heartbeatInterval, *prefetch, isSetByUser)
 	if err != nil {
-		return Flags{}, nil
+		return Flags{}, err
 	}
 
 	switch *mode {

@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: restaurant_user
+      POSTGRES_PASSWORD: restaurant_pass
+      POSTGRES_DB: restaurant_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "restaurant_user", "-d", "restaurant_db"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+
+  # app:
+  #   container_name: wheres-my-pizza
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   restart: always
+  #   ports: 
+  #     - "8080:8080"
+  #   depends_on: 
+  #     db:
+  #       condition: service_healthy  
+
+    
+volumes:
+  db_data:

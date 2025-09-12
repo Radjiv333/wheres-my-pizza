@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
-	order "wheres-my-pizza/internal/adapters/microservices/orders"
+	"wheres-my-pizza/internal/adapters/microservices/order"
 
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/config"
@@ -23,11 +23,14 @@ func main() {
 		// ERROR LOGGER
 		log.Fatalf("wrong config: %v", err)
 	}
+	// INFO LOGGER
+
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
 		// ERROR LOGGER
 		log.Fatalf("cannot connect to db: %v", err)
 	}
+	// INFO LOGGER
 
 	flags, err := services.FlagParse()
 	if err != nil {
@@ -39,6 +42,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Getting Order-service Handler
 	orderHandler := order.NewOrderHandler(repo, flags.MaxConcurrent, flags.Port)
 
 	mux := http.NewServeMux()
@@ -49,17 +53,19 @@ func main() {
 		Handler: mux,
 	}
 
+	// Starting server
 	go func() {
+		// INFO LOGGER
 		log.Printf("server listening on %s\n", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
-	server.ListenAndServe()
 
+	// Waiting for Ctrl+C signal
 	<-ctx.Done()
 	log.Println("shutting down gracefully...")
-
+	repo.Conn.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
