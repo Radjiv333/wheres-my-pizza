@@ -33,7 +33,7 @@ func (k *KitchenService) Start(ctx context.Context) error {
 	}
 	switch status {
 	case "online":
-		fmt.Errorf("worker is already working")
+		return fmt.Errorf("worker is already working")
 	case "offline":
 		err := k.repo.UpdateWorker(ctx, k.kitchenFlags.WorkerName)
 		if err != nil {

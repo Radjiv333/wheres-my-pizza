@@ -23,7 +23,7 @@ import (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		fmt.Printf("cannot load the config properly: %v", err)
+		fmt.Printf("cannot load the config properly: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -39,7 +39,7 @@ func main() {
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
-		fmt.Printf("cannot connect to db: %v", err)
+		fmt.Printf("cannot connect to db: %v\n", err)
 		os.Exit(1)
 	}
 	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"duration_ms": repo.DurationMs})
@@ -47,7 +47,7 @@ func main() {
 	// Initializing rabbitmq
 	rabbit, err := rabbitmq.NewRabbitMq()
 	if err != nil {
-		fmt.Printf("cannot connect to rabbitmq: %v", err)
+		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
 		os.Exit(1)
 	}
 	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": rabbit.DurationMs})
@@ -74,7 +74,7 @@ func main() {
 		go func() {
 			logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
 			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				fmt.Printf("cannot start server: %v", err)
+				fmt.Printf("cannot start server: %v\n", err)
 				os.Exit(1)
 			}
 		}()
@@ -83,11 +83,11 @@ func main() {
 		err := kitchenService.Start(ctx)
 		if err != nil {
 			// ERROR LOGGER -----------------------------------------------------
-			fmt.Printf("cannot start kitchen-service: %v", err)
+			fmt.Printf("cannot start kitchen-service: %v\n", err)
 			stop()
 			os.Exit(1)
 		}
-		
+
 	}
 
 	// Waiting for Ctrl+C signal
