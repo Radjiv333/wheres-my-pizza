@@ -16,6 +16,15 @@ func CheckOrderValues(order domain.Order) error {
 	if !(order.Type == "dine_in" || order.Type == "takeout" || order.Type == "delivery") {
 		return fmt.Errorf("invalid order_type: must be one of [dine_in, takeout, delivery] (got %s)", order.Type)
 	}
+	if order.Type == "dine_in" && (*order.TableNumber < 1 || *order.TableNumber > 100) {
+		return fmt.Errorf("invalid table_number: number must be 1 - 100 (got %d)", *order.TableNumber)
+	}
+	if order.Type == "dine_in" && *order.DeliveryAddress != "" {
+		return fmt.Errorf("invalid delivery_address: must be empty when type='dine_in'")
+	}
+	if order.Type == "delivery" && len(*order.DeliveryAddress) < 10 {
+		return fmt.Errorf("invalid delivery_address: must be more than 10 characters (got %d)", len(*order.DeliveryAddress))
+	}
 	if len(order.Items) < 1 || len(order.Items) > 20 {
 		return fmt.Errorf("items count is invalid: got %d, allowed 1 - 20", len(order.Items))
 	}

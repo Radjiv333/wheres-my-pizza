@@ -6,7 +6,7 @@ order:
 	@go run ./cmd/main.go --mode="order-service"
 
 kitchen:
-	go run ./cmd/main.go
+	go run ./cmd/main.go --mode="kitchen-worker" --worker-name="Sally"
 
 build:
 	@echo "Building the project..."

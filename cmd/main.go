@@ -26,6 +26,14 @@ func main() {
 	}
 	// INFO LOGGER
 
+	// Parsing flags
+	flags, err := services.FlagParse()
+	if err != nil {
+		// ERROR LOGGER
+		services.AppUsage()
+		os.Exit(1)
+	}
+
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
@@ -44,14 +52,6 @@ func main() {
 	if err != nil {
 		// ERROR LOGGER
 		log.Fatalf("cannot setup the rabbitmq: %v", err)
-	}
-
-	// Parsing flags
-	flags, err := services.FlagParse()
-	if err != nil {
-		// ERROR LOGGER
-		services.AppUsage()
-		os.Exit(1)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
