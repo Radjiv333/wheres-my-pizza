@@ -12,8 +12,8 @@ import (
 )
 
 type Rabbit struct {
-	conn *amqp.Connection
-	ch   *amqp.Channel
+	Conn *amqp.Connection
+	Ch   *amqp.Channel
 }
 
 var _ ports.MessageBrokerInterface = (*Rabbit)(nil)
@@ -24,21 +24,19 @@ func NewRabbitMq() (*Rabbit, error) {
 	if err != nil {
 		return nil, err
 	}
-	// defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
-	// defer ch.Close()
 
-	rabbit = &Rabbit{conn: conn, ch: ch}
+	rabbit = &Rabbit{Conn: conn, Ch: ch}
 	return rabbit, nil
 }
 
 func (r *Rabbit) SetupRabbitMQ() error {
 	// --- Declare Exchanges ---
-	if err := r.ch.ExchangeDeclare(
+	if err := r.Ch.ExchangeDeclare(
 		"orders_topic", // name
 		"topic",        // type
 		true,           // durable
@@ -133,7 +131,7 @@ func (r *Rabbit) PublishOrderMessage(ctx context.Context, order domain.Order) er
 	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
 
 	// Publish to exchange
-	err = r.ch.PublishWithContext(
+	err = r.Ch.PublishWithContext(
 		ctx,            // context
 		"orders_topic", // exchange
 		routingKey,     // routing key

@@ -35,7 +35,7 @@ type Logger struct {
 }
 
 // New initializes a new Logger
-func New(service string) *Logger {
+func NewLogger(service string) *Logger {
 	hostname, err := os.Hostname()
 	if err != nil || hostname == "" {
 		hostname = getFallbackHostname()
@@ -47,17 +47,17 @@ func New(service string) *Logger {
 }
 
 // Info logs an INFO message
-func (l *Logger) Info(action, message, requestID string, extra map[string]interface{}) {
+func (l *Logger) Info(requestID, action, message string, extra map[string]interface{}) {
 	l.log("INFO", action, message, requestID, nil, extra)
 }
 
 // Debug logs a DEBUG message
-func (l *Logger) Debug(action, message, requestID string, extra map[string]interface{}) {
+func (l *Logger) Debug(requestID, action, message string, extra map[string]interface{}) {
 	l.log("DEBUG", action, message, requestID, nil, extra)
 }
 
 // Error logs an ERROR message with error object
-func (l *Logger) Error(action, message string, err error, requestID string, extra map[string]interface{}) {
+func (l *Logger) Error(requestID, action, message string, err error, extra map[string]interface{}) {
 	errorObj := &ErrorObject{
 		Msg:   err.Error(),
 		Stack: string(debug.Stack()),
@@ -71,10 +71,10 @@ func (l *Logger) log(level, action, message, requestID string, errObj *ErrorObje
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 		Level:     level,
 		Service:   l.service,
-		Action:    action,
-		Message:   message,
 		Hostname:  l.hostname,
 		RequestID: requestID,
+		Action:    action,
+		Message:   message,
 		Error:     errObj,
 		Extra:     extra,
 	}

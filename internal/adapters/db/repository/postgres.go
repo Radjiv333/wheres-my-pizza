@@ -35,8 +35,6 @@ func NewRepository(cfg config.Config) (*Repository, error) {
 		return nil, err
 	}
 
-	fmt.Println(greeting)
-
 	return &Repository{Conn: conn}, nil
 }
 

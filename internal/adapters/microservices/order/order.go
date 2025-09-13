@@ -6,7 +6,8 @@ import (
 	"net/http"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
-	rabbitmq "wheres-my-pizza/internal/adapters/rabbit-mq"
+	"wheres-my-pizza/internal/adapters/rabbitmq"
+
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
@@ -32,6 +33,7 @@ func (o *OrderService) Stop() {
 func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var order domain.Order
+
 	err := json.NewDecoder(r.Body).Decode(&order)
 	if err != nil {
 		// ERROR LOGGER

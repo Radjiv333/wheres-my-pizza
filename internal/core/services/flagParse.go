@@ -7,6 +7,7 @@ import (
 )
 
 type Flags struct {
+	Mode          string
 	Port          int
 	MaxConcurrent int
 }
@@ -45,12 +46,13 @@ func FlagParse() (Flags, error) {
 		return Flags{}, err
 	}
 
+	// Return 'Flags' struct
 	switch *mode {
 	case "order-service":
 		if !isSetByUser {
 			*port = 3000
 		}
-		return Flags{Port: *port, MaxConcurrent: *maxConcurrent}, nil
+		return Flags{Mode: *mode, Port: *port, MaxConcurrent: *maxConcurrent}, nil
 	case "kitchen-worker":
 
 	case "tracking-service":
