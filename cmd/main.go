@@ -58,7 +58,7 @@ func main() {
 	defer stop()
 
 	// Initializing Order-service Handler
-	orderHandler := order.NewOrderHandler(repo, rabbit, flags.MaxConcurrent, flags.Port)
+	orderHandler := order.NewOrderHandler(repo, rabbit, flags.MaxConcurrent, flags.Port, logger)
 
 	// Initializing Mux
 	mux := http.NewServeMux()
