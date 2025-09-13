@@ -6,10 +6,20 @@ import (
 	"os"
 )
 
-type Flags struct {
-	Mode          string
+type KitchenFlags struct {
+	WorkerName        string
+	OrderType         string
+	HeartbeatInterval int
+	Prefetch          int
+}
+type OrderFlags struct {
 	Port          int
 	MaxConcurrent int
+}
+type Flags struct {
+	Mode    string
+	Order   OrderFlags
+	Kitchen KitchenFlags
 }
 
 func FlagParse() (Flags, error) {
@@ -52,9 +62,11 @@ func FlagParse() (Flags, error) {
 		if !isSetByUser {
 			*port = 3000
 		}
-		return Flags{Mode: *mode, Port: *port, MaxConcurrent: *maxConcurrent}, nil
+		orderFlags := OrderFlags{Port: *port, MaxConcurrent: *maxConcurrent}
+		return Flags{Mode: *mode, Order: orderFlags}, nil
 	case "kitchen-worker":
-
+		kitchenFlags := KitchenFlags{WorkerName: *workerName, OrderType: *orderTypes, HeartbeatInterval: *heartbeatInterval, Prefetch: *prefetch}
+		return Flags{Mode: *mode, Kitchen: kitchenFlags}, nil
 	case "tracking-service":
 
 	case "notification-subscriber":

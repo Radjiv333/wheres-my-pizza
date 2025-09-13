@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
+	"wheres-my-pizza/internal/adapters/microservices/kitchen"
 	"wheres-my-pizza/internal/adapters/microservices/order"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
 
@@ -19,9 +20,6 @@ import (
 	"wheres-my-pizza/pkg/logger"
 )
 
-// {"timestamp":"2024-12-16T10:30:00.000Z","level":"INFO","service":"order-service","hostname":"order-service-789abc","request_id":"startup-001","action":"service_started","message":"Order Service started on port 3000","details":{"port":3000,"max_concurrent":50}}
-// {"timestamp":"2024-12-16T10:30:01.000Z","level":"INFO","service":"order-service","hostname":"order-service-789abc","request_id":"startup-001","action":"db_connected","message":"Connected to PostgreSQL database","duration_ms":250}
-// {"timestamp":"2024-12-16T10:30:02.000Z","level":"INFO","service":"order-service","hostname":"order-service-789abc","request_id":"startup-001","action":"rabbitmq_connected","message":"Connected to RabbitMQ exchange 'orders_topic'","duration_ms":150}
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -57,20 +55,29 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	var orderHandler *order.OrderService
+	var kitchenService *kitchen.KitchenService
+
+	switch flags.Mode {
+	case "order-service":
+		orderHandler = order.NewOrderHandler(repo, rabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
+	case "kitchen-worker":
+		kitchenService = kitchen.NewKitchen(repo, rabbit, flags.Kitchen, logger)
+		kitchenService.Start()
+	}
 	// Initializing Order-service Handler
-	orderHandler := order.NewOrderHandler(repo, rabbit, flags.MaxConcurrent, flags.Port, logger)
 
 	// Initializing Mux
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /orders", orderHandler.PostOrder)
 	server := http.Server{
-		Addr:    fmt.Sprintf(":%d", flags.Port),
+		Addr:    fmt.Sprintf(":%d", flags.Order.Port),
 		Handler: mux,
 	}
 
 	// Starting server
 	go func() {
-		logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Port, "max_concurrent": flags.MaxConcurrent}})
+		logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}
