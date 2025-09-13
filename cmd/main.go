@@ -25,42 +25,34 @@ import (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		// ERROR LOGGER
 		fmt.Printf("cannot load the config properly: %v", err)
 		os.Exit(1)
 	}
-	// INFO LOGGER
-	
+
 	// Parsing flags
 	flags, err := services.FlagParse()
 	if err != nil {
-		// ERROR LOGGER
 		services.AppUsage()
 		os.Exit(1)
 	}
-	
+
 	logger := logger.NewLogger(flags.Mode)
-	
+
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
-		// ERROR LOGGER
-		log.Fatalf("cannot connect to db: %v", err)
+		fmt.Printf("cannot connect to db: %v", err)
+		os.Exit(1)
 	}
-	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"details": map[string]interface{}{"duration_ms": flags.Port, "max_concurrent": flags.MaxConcurrent}})
-	// INFO LOGGER
+	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"duration_ms": repo.DurationMs})
 
 	// Initializing rabbitmq
 	rabbit, err := rabbitmq.NewRabbitMq()
 	if err != nil {
-		// ERROR LOGGER
-		log.Fatalf("cannot connect to rabbitmq: %v", err)
+		fmt.Printf("cannot connect to rabbitmq: %v", err)
+		os.Exit(1)
 	}
-	err = rabbit.SetupRabbitMQ()
-	if err != nil {
-		// ERROR LOGGER
-		log.Fatalf("cannot setup the rabbitmq: %v", err)
-	}
+	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": rabbit.DurationMs})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -68,6 +60,7 @@ func main() {
 	// Initializing Order-service Handler
 	orderHandler := order.NewOrderHandler(repo, rabbit, flags.MaxConcurrent, flags.Port)
 
+	// Initializing Mux
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /orders", orderHandler.PostOrder)
 	server := http.Server{

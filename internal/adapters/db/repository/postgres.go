@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
@@ -13,13 +14,15 @@ import (
 )
 
 type Repository struct {
-	Conn *pgxpool.Pool
+	Conn       *pgxpool.Pool
+	DurationMs time.Duration
 }
 
 var _ ports.RepositoryInterface = (*Repository)(nil)
 
 // "postgres://username:password@localhost:5432/database_name"
 func NewRepository(cfg config.Config) (*Repository, error) {
+	start := time.Now()
 	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
 		cfg.Database.User, cfg.Database.Password, cfg.Database.Host,
 		cfg.Database.Port, cfg.Database.DatabaseName)
@@ -35,7 +38,8 @@ func NewRepository(cfg config.Config) (*Repository, error) {
 		return nil, err
 	}
 
-	return &Repository{Conn: conn}, nil
+	durationMs := time.Since(start).Milliseconds()
+	return &Repository{Conn: conn, DurationMs: time.Duration(durationMs)}, nil
 }
 
 func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (string, error) {

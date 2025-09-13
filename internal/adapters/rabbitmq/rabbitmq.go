@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
@@ -12,14 +13,17 @@ import (
 )
 
 type Rabbit struct {
-	Conn *amqp.Connection
-	Ch   *amqp.Channel
+	Conn       *amqp.Connection
+	Ch         *amqp.Channel
+	DurationMs time.Duration
 }
 
 var _ ports.MessageBrokerInterface = (*Rabbit)(nil)
 
 func NewRabbitMq() (*Rabbit, error) {
+	start := time.Now()
 	var rabbit *Rabbit
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
 		return nil, err
@@ -30,13 +34,20 @@ func NewRabbitMq() (*Rabbit, error) {
 		return nil, err
 	}
 
-	rabbit = &Rabbit{Conn: conn, Ch: ch}
+	err = SetupRabbitChannel(ch)
+	if err != nil {
+		return nil, err
+	}
+
+	durationMs := time.Since(start).Milliseconds()
+
+	rabbit = &Rabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs)}
 	return rabbit, nil
 }
 
-func (r *Rabbit) SetupRabbitMQ() error {
+func SetupRabbitChannel(ch *amqp.Channel) error {
 	// --- Declare Exchanges ---
-	if err := r.Ch.ExchangeDeclare(
+	if err := ch.ExchangeDeclare(
 		"orders_topic", // name
 		"topic",        // type
 		true,           // durable

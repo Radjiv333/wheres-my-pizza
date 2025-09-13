@@ -7,6 +7,6 @@ import (
 )
 
 type MessageBrokerInterface interface {
-	SetupRabbitMQ() error
+	// SetupRabbitMQ() error
 	PublishOrderMessage(ctx context.Context, order domain.Order) error
 }
