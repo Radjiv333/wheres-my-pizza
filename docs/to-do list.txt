@@ -1,3 +1,4 @@
 1. I need to understand what to put into request_id field in logger
+2. I need to parse the order_type in kitchen-service
 
 docker exec -it 7dd26accfe69 psql -U restaurant_user -d restaurant_db -h localhost -p 5432

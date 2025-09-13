@@ -1,11 +1,16 @@
 package kitchen
 
 import (
+	"context"
+	"fmt"
+
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
 	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/logger"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type KitchenService struct {
@@ -21,6 +26,25 @@ func NewKitchen(repo *repository.Repository, rabbit *rabbitmq.Rabbit, kitchenFla
 	return &KitchenService{repo: repo, rabbit: rabbit, kitchenFlags: kitchenFlags, logger: logger}
 }
 
-func (k *KitchenService) Start() {
-	
+func (k *KitchenService) Start(ctx context.Context) error {
+	status, err := k.repo.GetWorkerStatus(ctx, k.kitchenFlags.WorkerName)
+	if err != nil && err != pgx.ErrNoRows {
+		return err
+	}
+	switch status {
+	case "online":
+		fmt.Errorf("worker is already working")
+	case "offline":
+		err := k.repo.UpdateWorker(ctx, k.kitchenFlags.WorkerName)
+		if err != nil {
+			return err
+		}
+	case "":
+		err := k.repo.InsertWorker(ctx, k.kitchenFlags.WorkerName, k.kitchenFlags.OrderType)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

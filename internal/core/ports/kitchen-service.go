@@ -1,5 +1,7 @@
 package ports
 
-type KitchenServiceInterface interface{
-	Start()
+import "context"
+
+type KitchenServiceInterface interface {
+	Start(ctx context.Context) error
 }

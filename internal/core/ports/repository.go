@@ -8,4 +8,5 @@ import (
 
 type RepositoryInterface interface {
 	InsertOrder(ctx context.Context, order *domain.Order) (string, error)
+	InsertWorker(ctx context.Context, workerName string, orderType string) error
 }

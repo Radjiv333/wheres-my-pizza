@@ -32,7 +32,7 @@ func FlagParse() (Flags, error) {
 
 	// Kitchen-service
 	workerName := flag.String("worker-name", "", "Unique name for worker")
-	orderTypes := flag.String("order-types", "", "Optional. Comma-separated list of order types the worker can handle (e.g., dine_in,takeout). If omitted, handles all.")
+	orderTypes := flag.String("order-types", "takeout", "Optional. Comma-separated list of order types the worker can handle (e.g., dine_in,takeout). If omitted, handles all.")
 	heartbeatInterval := flag.Int("heartbeat-interval", 30, "Maximum number of concurrent orders to process.")
 	prefetch := flag.Int("prefetch", 1, "RabbitMQ prefetch count, limiting how many messages the worker receives at once.")
 

@@ -55,33 +55,40 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	var orderHandler *order.OrderService
+	var orderService *order.OrderService
 	var kitchenService *kitchen.KitchenService
-
+	var server http.Server
 	switch flags.Mode {
 	case "order-service":
-		orderHandler = order.NewOrderHandler(repo, rabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
+		// Initializing Order-service
+		orderService = order.NewOrderHandler(repo, rabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
+
+		// Initializing Mux
+		mux := http.NewServeMux()
+		mux.HandleFunc("POST /orders", orderService.PostOrder)
+		server = http.Server{
+			Addr:    fmt.Sprintf(":%d", flags.Order.Port),
+			Handler: mux,
+		}
+		// Starting server
+		go func() {
+			logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				fmt.Printf("cannot start server: %v", err)
+				os.Exit(1)
+			}
+		}()
 	case "kitchen-worker":
 		kitchenService = kitchen.NewKitchen(repo, rabbit, flags.Kitchen, logger)
-		kitchenService.Start()
-	}
-	// Initializing Order-service Handler
-
-	// Initializing Mux
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /orders", orderHandler.PostOrder)
-	server := http.Server{
-		Addr:    fmt.Sprintf(":%d", flags.Order.Port),
-		Handler: mux,
-	}
-
-	// Starting server
-	go func() {
-		logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+		err := kitchenService.Start(ctx)
+		if err != nil {
+			// ERROR LOGGER -----------------------------------------------------
+			fmt.Printf("cannot start kitchen-service: %v", err)
+			stop()
+			os.Exit(1)
 		}
-	}()
+		
+	}
 
 	// Waiting for Ctrl+C signal
 	<-ctx.Done()

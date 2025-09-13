@@ -122,3 +122,78 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 
 	return orderNumber, nil
 }
+
+// func (r *Repository) InsertWorker(ctx context.Context, kitchenFlags services.KitchenFlags) error {
+// 	const selectSQL = `
+// 		SELECT status FROM workers WHERE name = $1;
+// 	`
+// 	var status string
+// 	err := r.Conn.QueryRow(ctx, selectSQL, kitchenFlags.WorkerName).Scan(&status)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err == pgx.ErrNoRows {
+// 		// Inserting new
+// 		const insertSQL = `
+// 			INSERT INTO workers (name, type, status, last_seen)
+// 			VALUES ($1, $2, 'online', $3);
+// 		`
+// 		_, err := r.Conn.Exec(ctx, insertSQL, kitchenFlags.WorkerName, kitchenFlags.OrderType, time.Now().UTC())
+// 		if err != nil {
+// 			return err
+// 		}
+
+// 		return nil
+// 	}
+
+// 	// Worker already exists
+// 	if status == "online" {
+// 		fmt.Println("worker is already online. NOT GRACEFUL SHUTDOWN")
+// 		os.Exit(1)
+// 	}
+
+// 	// Update existing offline worker to online
+// 	const updateSQL = `
+// 		UPDATE workers
+// 		SET status = 'online', last_seen = $2
+// 		WHERE name = $1;
+// 	`
+// 	_, err = r.Conn.Exec(ctx, updateSQL, kitchenFlags.WorkerName, time.Now().UTC())
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
+
+func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (string, error) {
+	const selectSQL = `
+		SELECT status FROM workers WHERE name = $1;
+	`
+	var status string
+	err := r.Conn.QueryRow(ctx, selectSQL, workerName).Scan(&status)
+	if err != nil {
+		return status, err
+	}
+
+	return status, nil
+}
+
+func (r *Repository) UpdateWorker(ctx context.Context, workerName string) error {
+	const updateSQL = `
+		UPDATE workers
+		SET status = 'online', last_seen = $2
+		WHERE name = $1;
+	`
+	_, err := r.Conn.Exec(ctx, updateSQL, workerName, time.Now().UTC())
+	return err
+}
+
+func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderType string) error {
+	const insertSQL = `
+		INSERT INTO workers (name, type, status, last_seen)
+		VALUES ($1, $2, 'online', $3);
+	`
+	_, err := r.Conn.Exec(ctx, insertSQL, workerName, orderType, time.Now().UTC())
+	return err
+}
