@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"wheres-my-pizza/internal/core/domain"
@@ -123,49 +124,6 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 	return orderNumber, nil
 }
 
-// func (r *Repository) InsertWorker(ctx context.Context, kitchenFlags services.KitchenFlags) error {
-// 	const selectSQL = `
-// 		SELECT status FROM workers WHERE name = $1;
-// 	`
-// 	var status string
-// 	err := r.Conn.QueryRow(ctx, selectSQL, kitchenFlags.WorkerName).Scan(&status)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if err == pgx.ErrNoRows {
-// 		// Inserting new
-// 		const insertSQL = `
-// 			INSERT INTO workers (name, type, status, last_seen)
-// 			VALUES ($1, $2, 'online', $3);
-// 		`
-// 		_, err := r.Conn.Exec(ctx, insertSQL, kitchenFlags.WorkerName, kitchenFlags.OrderType, time.Now().UTC())
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		return nil
-// 	}
-
-// 	// Worker already exists
-// 	if status == "online" {
-// 		fmt.Println("worker is already online. NOT GRACEFUL SHUTDOWN")
-// 		os.Exit(1)
-// 	}
-
-// 	// Update existing offline worker to online
-// 	const updateSQL = `
-// 		UPDATE workers
-// 		SET status = 'online', last_seen = $2
-// 		WHERE name = $1;
-// 	`
-// 	_, err = r.Conn.Exec(ctx, updateSQL, kitchenFlags.WorkerName, time.Now().UTC())
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (string, error) {
 	const selectSQL = `
 		SELECT status FROM workers WHERE name = $1;
@@ -179,21 +137,32 @@ func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (st
 	return status, nil
 }
 
-func (r *Repository) UpdateWorker(ctx context.Context, workerName string) error {
+func (r *Repository) UpdateWorkerStatus(ctx context.Context, workerName, status string) error {
 	const updateSQL = `
 		UPDATE workers
-		SET status = 'online', last_seen = $2
-		WHERE name = $1;
+		SET status = $1, last_seen = $2
+		WHERE name = $3;
 	`
-	_, err := r.Conn.Exec(ctx, updateSQL, workerName, time.Now().UTC())
+	_, err := r.Conn.Exec(ctx, updateSQL, status, time.Now().UTC(), workerName)
 	return err
 }
 
-func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderType string) error {
+func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderTypes []string) error {
 	const insertSQL = `
 		INSERT INTO workers (name, type, status, last_seen)
 		VALUES ($1, $2, 'online', $3);
 	`
-	_, err := r.Conn.Exec(ctx, insertSQL, workerName, orderType, time.Now().UTC())
+	orderTypesStr := strings.Join(orderTypes, ",")
+	_, err := r.Conn.Exec(ctx, insertSQL, workerName, orderTypesStr, time.Now().UTC())
 	return err
 }
+
+// func (r *Repository) Close(ctx context.Context, workerName string) error {
+// 	const updateSQL = `
+// 		UPDATE workers
+// 		SET status = 'offline', last_seen = $2
+// 		WHERE name = $1;
+// 	`
+// 	_, err := r.Conn.Exec(ctx, updateSQL, workerName, time.Now().UTC())
+// 	return err
+// }

@@ -35,16 +35,17 @@ func (k *KitchenService) Start(ctx context.Context) error {
 	case "online":
 		return fmt.Errorf("worker is already working")
 	case "offline":
-		err := k.repo.UpdateWorker(ctx, k.kitchenFlags.WorkerName)
+		err := k.repo.UpdateWorkerStatus(ctx, k.kitchenFlags.WorkerName, "online")
 		if err != nil {
 			return err
 		}
 	case "":
-		err := k.repo.InsertWorker(ctx, k.kitchenFlags.WorkerName, k.kitchenFlags.OrderType)
+		err := k.repo.InsertWorker(ctx, k.kitchenFlags.WorkerName, k.kitchenFlags.OrderTypes)
 		if err != nil {
 			return err
 		}
 	}
 
+	// k.rabbit.ConsumeMessages()
 	return nil
 }

@@ -39,6 +39,7 @@ func main() {
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
+		// Gracefull shutdown
 		fmt.Printf("cannot connect to db: %v\n", err)
 		os.Exit(1)
 	}
@@ -47,6 +48,7 @@ func main() {
 	// Initializing rabbitmq
 	rabbit, err := rabbitmq.NewRabbitMq()
 	if err != nil {
+		// Gracefull shutdown
 		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
 		os.Exit(1)
 	}
@@ -74,6 +76,7 @@ func main() {
 		go func() {
 			logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
 			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				stop()
 				fmt.Printf("cannot start server: %v\n", err)
 				os.Exit(1)
 			}
@@ -92,7 +95,10 @@ func main() {
 
 	// Waiting for Ctrl+C signal
 	<-ctx.Done()
-	log.Println("shutting down gracefully...")
+	err = repo.UpdateWorkerStatus(context.Background(), flags.Kitchen.WorkerName, "offline")
+	if err != nil {
+		fmt.Printf("db cannot gracefully shutdown: %v\n", err)
+	}
 	repo.Conn.Close()
 	rabbit.Ch.Close()
 	rabbit.Conn.Close()
@@ -101,4 +107,5 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("server shutdown failed: %+v", err)
 	}
+	log.Println("shutting down gracefully...")
 }

@@ -4,11 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"wheres-my-pizza/internal/core/utils.go"
 )
 
 type KitchenFlags struct {
 	WorkerName        string
-	OrderType         string
+	OrderTypes        []string
 	HeartbeatInterval int
 	Prefetch          int
 }
@@ -32,7 +34,7 @@ func FlagParse() (Flags, error) {
 
 	// Kitchen-service
 	workerName := flag.String("worker-name", "", "Unique name for worker")
-	orderTypes := flag.String("order-types", "takeout", "Optional. Comma-separated list of order types the worker can handle (e.g., dine_in,takeout). If omitted, handles all.")
+	orderTypes := flag.String("order-types", "takeout, dine_in, delivery", "Optional. Comma-separated list of order types the worker can handle (e.g., dine_in,takeout). If omitted, handles all.")
 	heartbeatInterval := flag.Int("heartbeat-interval", 30, "Maximum number of concurrent orders to process.")
 	prefetch := flag.Int("prefetch", 1, "RabbitMQ prefetch count, limiting how many messages the worker receives at once.")
 
@@ -65,7 +67,8 @@ func FlagParse() (Flags, error) {
 		orderFlags := OrderFlags{Port: *port, MaxConcurrent: *maxConcurrent}
 		return Flags{Mode: *mode, Order: orderFlags}, nil
 	case "kitchen-worker":
-		kitchenFlags := KitchenFlags{WorkerName: *workerName, OrderType: *orderTypes, HeartbeatInterval: *heartbeatInterval, Prefetch: *prefetch}
+		orderTypesArr := utils.GetStringArray(*orderTypes)
+		kitchenFlags := KitchenFlags{WorkerName: *workerName, OrderTypes: orderTypesArr, HeartbeatInterval: *heartbeatInterval, Prefetch: *prefetch}
 		return Flags{Mode: *mode, Kitchen: kitchenFlags}, nil
 	case "tracking-service":
 

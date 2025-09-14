@@ -22,9 +22,17 @@ func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartb
 			errMessage := "'worker-name' value cannot be empty"
 			return errors.New(errMessage)
 		}
-		if !(orderTypes == "dine_in" || orderTypes == "delivery" || orderTypes == "takeout") {
-			errMessage := fmt.Sprintf("invalid 'order-types' value: %s", orderTypes)
+
+		orderTypesArr := utils.GetStringArray(orderTypes)
+		if len(orderTypesArr) == 0 {
+			errMessage := "invalid 'order-types' value: value is empty"
 			return errors.New(errMessage)
+		}
+		for _, orderType := range orderTypesArr {
+			if !(orderType == "dine_in" || orderType == "delivery" || orderType == "takeout") {
+				errMessage := fmt.Sprintf("invalid 'order-types' value: %s", orderType)
+				return errors.New(errMessage)
+			}
 		}
 		if heartbeatInterval > 50 || heartbeatInterval <= 0 {
 			errMessage := fmt.Sprintf("invalid 'heartbeat-interval' value: %d", heartbeatInterval)
