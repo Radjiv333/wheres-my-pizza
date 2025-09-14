@@ -15,14 +15,14 @@ import (
 
 type KitchenService struct {
 	repo         *repository.Repository
-	rabbit       *rabbitmq.Rabbit
+	rabbit       *rabbitmq.KitchenRabbit
 	kitchenFlags services.KitchenFlags
 	logger       *logger.Logger
 }
 
 var _ ports.KitchenServiceInterface = (*KitchenService)(nil)
 
-func NewKitchen(repo *repository.Repository, rabbit *rabbitmq.Rabbit, kitchenFlags services.KitchenFlags, logger *logger.Logger) *KitchenService {
+func NewKitchen(repo *repository.Repository, rabbit *rabbitmq.KitchenRabbit, kitchenFlags services.KitchenFlags, logger *logger.Logger) *KitchenService {
 	return &KitchenService{repo: repo, rabbit: rabbit, kitchenFlags: kitchenFlags, logger: logger}
 }
 

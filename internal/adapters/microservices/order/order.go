@@ -18,13 +18,13 @@ type OrderService struct {
 	maxConcurrent int
 	port          int
 	repo          *repository.Repository
-	rabbit        *rabbitmq.Rabbit
+	rabbit        *rabbitmq.OrderRabbit
 	logger        *logger.Logger
 }
 
 var _ ports.OrderServiceInterface = (*OrderService)(nil)
 
-func NewOrderHandler(repo *repository.Repository, rabbit *rabbitmq.Rabbit, maxConcurrent, port int, logger *logger.Logger) *OrderService {
+func NewOrderHandler(repo *repository.Repository, rabbit *rabbitmq.OrderRabbit, maxConcurrent, port int, logger *logger.Logger) *OrderService {
 	return &OrderService{maxConcurrent: maxConcurrent, rabbit: rabbit, port: port, repo: repo, logger: logger}
 }
 

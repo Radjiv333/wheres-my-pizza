@@ -2,3 +2,76 @@
 2. I need to parse the order_type in kitchen-service
 
 docker exec -it 7dd26accfe69 psql -U restaurant_user -d restaurant_db -h localhost -p 5432
+
+
+
+
+	// if err := r.ch.ExchangeDeclare(
+	// 	"notifications_fanout",
+	// 	"fanout",
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// ); err != nil {
+	// 	return err
+	// }
+
+	// // --- Declare Queues ---
+	// // General kitchen queue
+	// q1, err := r.ch.QueueDeclare(
+	// 	"kitchen_queue", // name
+	// 	true,            // durable
+	// 	false,           // delete when unused
+	// 	false,           // exclusive
+	// 	false,           // no-wait
+	// 	nil,             // arguments
+	// )
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // Bind kitchen_queue to all orders
+	// if err := r.ch.QueueBind(
+	// 	q1.Name,        // queue name
+	// 	"kitchen.*.*",  // routing key pattern
+	// 	"orders_topic", // exchange
+	// 	false,
+	// 	nil,
+	// ); err != nil {
+	// 	return err
+	// }
+
+	// Specialized queues (optional)
+	// r.ch.QueueDeclare("kitchen_dine_in_queue", true, false, false, false, nil)
+	// r.ch.QueueBind("kitchen_dine_in_queue", "kitchen.dine_in.*", "orders_topic", false, nil)
+
+	// r.ch.QueueDeclare("kitchen_takeout_queue", true, false, false, false, nil)
+	// r.ch.QueueBind("kitchen_takeout_queue", "kitchen.takeout.*", "orders_topic", false, nil)
+
+	// r.ch.QueueDeclare("kitchen_delivery_queue", true, false, false, false, nil)
+	// r.ch.QueueBind("kitchen_delivery_queue", "kitchen.delivery.*", "orders_topic", false, nil)
+
+	// Notifications queue (each subscriber creates its own)
+	// q2, err := r.ch.QueueDeclare(
+	// 	"notifications_queue", // name
+	// 	true,
+	// 	false,
+	// 	false,
+	// 	false,
+	// 	nil,
+	// )
+	// if err != nil {
+	// 	return err
+	// }
+
+	// if err := r.ch.QueueBind(
+	// 	q2.Name,
+	// 	"", // fanout ignores routing key
+	// 	"notifications_fanout",
+	// 	false,
+	// 	nil,
+	// ); err != nil {
+	// 	return err
+	// }

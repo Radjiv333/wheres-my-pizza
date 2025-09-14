@@ -46,7 +46,7 @@ func main() {
 	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"duration_ms": repo.DurationMs})
 
 	// Initializing rabbitmq
-	rabbit, err := rabbitmq.NewRabbitMq()
+	rabbit, err := rabbitmq.NewRabbitMq(flags.Mode)
 	if err != nil {
 		// Gracefull shutdown
 		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
