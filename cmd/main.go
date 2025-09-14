@@ -45,15 +45,6 @@ func main() {
 	}
 	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"duration_ms": repo.DurationMs})
 
-	// Initializing rabbitmq
-	rabbit, err := rabbitmq.NewRabbitMq(flags.Mode)
-	if err != nil {
-		// Gracefull shutdown
-		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
-		os.Exit(1)
-	}
-	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": rabbit.DurationMs})
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -62,8 +53,17 @@ func main() {
 	var server http.Server
 	switch flags.Mode {
 	case "order-service":
+		// Initializing rabbitmq for orders
+		orderRabbit, err := rabbitmq.NewOrderRabbit()
+		if err != nil {
+			// Gracefull shutdown
+			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
+			os.Exit(1)
+		}
+		logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": orderRabbit.DurationMs})
+
 		// Initializing Order-service
-		orderService = order.NewOrderHandler(repo, rabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
+		orderService = order.NewOrderHandler(repo, orderRabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
 
 		// Initializing Mux
 		mux := http.NewServeMux()
@@ -82,8 +82,17 @@ func main() {
 			}
 		}()
 	case "kitchen-worker":
-		kitchenService = kitchen.NewKitchen(repo, rabbit, flags.Kitchen, logger)
-		err := kitchenService.Start(ctx)
+		// Initializing rabbitmq for kitchen
+		kitchenRabbit, err := rabbitmq.NewKitchenRabbit()
+		if err != nil {
+			// Gracefull shutdown
+			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
+			os.Exit(1)
+		}
+		logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": kitchenRabbit.DurationMs})
+
+		kitchenService = kitchen.NewKitchen(repo, kitchenRabbit, flags.Kitchen, logger)
+		err = kitchenService.Start(ctx)
 		if err != nil {
 			// ERROR LOGGER -----------------------------------------------------
 			fmt.Printf("cannot start kitchen-service: %v\n", err)
@@ -100,8 +109,8 @@ func main() {
 		fmt.Printf("db cannot gracefully shutdown: %v\n", err)
 	}
 	repo.Conn.Close()
-	rabbit.Ch.Close()
-	rabbit.Conn.Close()
+	// rabbit.Ch.Close()
+	// rabbit.Conn.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {

@@ -55,6 +55,8 @@ func SetupOrderChannel(ch *amqp.Channel) error {
 		return err
 	}
 
+	
+
 	return nil
 }
 

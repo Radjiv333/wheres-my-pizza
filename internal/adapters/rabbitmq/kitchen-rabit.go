@@ -1,9 +1,5 @@
 package rabbitmq
 
-
-
-package rabbitmq
-
 import (
 	"context"
 	"encoding/json"
