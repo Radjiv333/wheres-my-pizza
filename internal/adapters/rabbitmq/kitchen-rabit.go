@@ -1,12 +1,9 @@
 package rabbitmq
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 	"time"
-
-	"wheres-my-pizza/internal/core/domain"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -14,6 +11,14 @@ import (
 type KitchenRabbitInterface interface{}
 
 var _ KitchenRabbitInterface = (*KitchenRabbit)(nil)
+
+var (
+	dine_in            string   = "dine_in"
+	takeout            string   = "takeout"
+	delivery           string   = "delivery"
+	orderTypes         []string = []string{dine_in, takeout, delivery}
+	numberOfOrderTypes int      = 3
+)
 
 type KitchenRabbit struct {
 	Conn       *amqp.Connection
@@ -54,39 +59,101 @@ func SetupKitchenChannel(ch *amqp.Channel) error {
 	); err != nil {
 		return err
 	}
+	err := ch.Qos(10, 0, false) // max 10 unacknowledged messages
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (r *KitchenRabbit) PublishOrderMessage(ctx context.Context, order domain.Order) error {
-	body, err := json.Marshal(order)
+func (r *KitchenRabbit) ConsumeMessages(workerName string) error {
+	// GENERAL QUEUE
+	_, err := r.Ch.QueueDeclare("kitchen_queue", true, false, false, false, nil)
 	if err != nil {
-		return fmt.Errorf("failed to marshal order message: %w", err)
+		return err
 	}
-
-	// Create routing key: kitchen.{order_type}.{priority}
-	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
-
-	// Publish to exchange
-	err = r.Ch.PublishWithContext(
-		ctx,            // context
-		"orders_topic", // exchange
-		routingKey,     // routing key
-		false,          // mandatory
-		false,          // immediate
-		amqp.Publishing{
-			ContentType:  "application/json",
-			Body:         body,
-			DeliveryMode: amqp.Persistent, // make message persistent
-			Priority:     uint8(order.Priority),
-		},
+	err = r.Ch.QueueBind("kitchen_queue", "kitchen.*.*", "orders_topic", false, nil)
+	if err != nil {
+		return err
+	}
+	msgs, err := r.Ch.Consume(
+		"kitchen_queue", // queue
+		"",              // consumer tag
+		false,           // auto-ack
+		false,           // exclusive
+		false,           // no-local
+		false,           // no-wait
+		nil,             // args
 	)
 	if err != nil {
-		return fmt.Errorf("failed to publish order message: %w", err)
+		return err
+	}
+	go r.handleMessages(msgs, workerName) // Start a goroutine for consuming messages from each queue
+
+	// SPECIFIC QUEUES
+	var specificQueues []string
+	for _, orderType := range orderTypes {
+		specificQueues = append(specificQueues, "kitchen_"+orderType+"_queue")
+	}
+	fmt.Println(specificQueues)
+
+	for i, queueName := range specificQueues {
+		_, err := r.Ch.QueueDeclare(queueName, true, false, false, false, nil)
+		if err != nil {
+			return err
+		}
+		err = r.Ch.QueueBind(specificQueues[i], "kitchen."+orderTypes[i]+".*", "orders_topic", false, nil)
+		if err != nil {
+			return err
+		}
 	}
 
-	return nil
+	for _, queueName := range specificQueues {
+		msgs, err := r.Ch.Consume(
+			queueName, // queue
+			"",        // consumer tag
+			false,     // auto-ack
+			false,     // exclusive
+			false,     // no-local
+			false,     // no-wait
+			nil,       // args
+		)
+		if err != nil {
+			log.Fatalf("Failed to register a consumer for queue %s: %s", queueName, err)
+		}
+
+		go r.handleMessages(msgs, workerName) // Start a goroutine for consuming messages from each queue
+	}
+	select {}
 }
 
-func (r *KitchenRabbit) ConsumeKitchenMessage(ctx context.Context) {
+func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, workerName string) {
+	for msg := range msgs {
+		// Deserialize the message body (e.g., JSON to struct)
+		orderType := string(msg.Body) // Assuming the body is a string for this example
+
+		// Check if the worker is specialized for this order type
+		if !r.isSpecializedForOrderType(orderType) {
+			// Negatively acknowledge the message and requeue it
+			log.Printf("Worker %s is not specialized for order type %s, rejecting message", workerName, orderType)
+			msg.Nack(false, true) // requeue the message
+			continue
+		}
+
+		// Process the message (your logic here)
+		log.Printf("Worker %s is processing order type %s", workerName, orderType)
+
+		// After processing, acknowledge the message
+		msg.Ack(false)
+	}
+}
+
+func (w *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
+	for _, t := range orderTypes {
+		if t == orderType {
+			return true
+		}
+	}
+	return false
 }

@@ -46,6 +46,6 @@ func (k *KitchenService) Start(ctx context.Context) error {
 		}
 	}
 
-	// k.rabbit.ConsumeMessages()
+	k.rabbit.ConsumeMessages(k.kitchenFlags.WorkerName)
 	return nil
 }
