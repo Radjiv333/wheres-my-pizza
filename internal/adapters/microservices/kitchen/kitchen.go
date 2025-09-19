@@ -69,8 +69,18 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			if err != nil {
 				errCh <- err
 			}
+
+			var cookingTime int
+			switch order.Type {
+			case "dine_in":
+				cookingTime = 8
+			case "takeout":
+				cookingTime = 10
+			case "delivery":
+				cookingTime = 12
+			}
 			
-			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, newOrderStatus, k.kitchenFlags.WorkerName)
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, newOrderStatus, k.kitchenFlags.WorkerName, cookingTime)
 			if err != nil {
 				errCh <- err
 			}

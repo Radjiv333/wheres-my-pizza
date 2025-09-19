@@ -170,15 +170,15 @@ type StatusUpdateMessage struct {
 	EstimatedCompletion time.Time `json:"estimated_completion"`
 }
 
-func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, newOrderStatus, workerName string, seconds int64) error {
+func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, newOrderStatus, workerName string, seconds int) error {
 	t1 := time.Now()
-	t2 := t1.Add(time.Duration(seconds) * time.Second())
-	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: order.Status, NewStatus: newOrderStatus, ChangedBy: workerName, TimeStamp: time.Now() + time.Second(1)}
-	body, err := json.Marshal(order)
+	t2 := t1.Add(time.Duration(seconds) * time.Second)
+	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: order.Status, NewStatus: newOrderStatus, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
+	body, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal order message: %w", err)
 	}
-
+	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Create routing key: kitchen.{order_type}.{priority}
 	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
 
