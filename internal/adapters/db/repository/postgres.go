@@ -203,3 +203,16 @@ func (r *Repository) UpdateOrder(ctx context.Context, workerName string, status 
 
 	return nil
 }
+
+func (r *Repository) GetOrderStatus(ctx context.Context, orderID int) (string, error) {
+	const selectSQL = `
+		SELECT status FROM orders WHERE id = $1;
+	`
+	var status string
+	err := r.Conn.QueryRow(ctx, selectSQL, orderID).Scan(&status)
+	if err != nil {
+		return status, err
+	}
+
+	return status, nil
+}

@@ -65,6 +65,15 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			if err != nil {
 				errCh <- err
 			}
+			newOrderStatus, err := k.repo.GetOrderStatus(ctx, order.ID)
+			if err != nil {
+				errCh <- err
+			}
+			
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, newOrderStatus, k.kitchenFlags.WorkerName)
+			if err != nil {
+				errCh <- err
+			}
 		case <-ctx.Done():
 			return
 		}

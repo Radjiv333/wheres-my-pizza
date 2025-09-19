@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -158,4 +159,47 @@ func (r *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
 func (r *KitchenRabbit) Close() {
 	r.Ch.Close()
 	r.Conn.Close()
+}
+
+type StatusUpdateMessage struct {
+	OrderNumber         string    `json:"order_number"`
+	OldStatus           string    `json:"old_status"`
+	NewStatus           string    `json:"new_status"`
+	ChangedBy           string    `json:"changed_by"`
+	TimeStamp           time.Time `json:"timestamp"`
+	EstimatedCompletion time.Time `json:"estimated_completion"`
+}
+
+func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, newOrderStatus, workerName string, seconds int64) error {
+	t1 := time.Now()
+	t2 := t1.Add(time.Duration(seconds) * time.Second())
+	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: order.Status, NewStatus: newOrderStatus, ChangedBy: workerName, TimeStamp: time.Now() + time.Second(1)}
+	body, err := json.Marshal(order)
+	if err != nil {
+		return fmt.Errorf("failed to marshal order message: %w", err)
+	}
+
+	// Create routing key: kitchen.{order_type}.{priority}
+	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
+
+	// Publish to exchange
+	err = r.Ch.PublishWithContext(
+		ctx,            // context
+		"orders_topic", // exchange
+		routingKey,     // routing key
+		false,          // mandatory
+		false,          // immediate
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         body,
+			DeliveryMode: amqp.Persistent, // make message persistent
+			Priority:     uint8(order.Priority),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to publish order message: %w", err)
+	}
+
+	return nil
+	return nil
 }
