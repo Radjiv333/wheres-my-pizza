@@ -46,16 +46,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	var orderService *order.OrderService
-	var kitchenService *kitchen.KitchenService
-	var kitchenRabbit *rabbitmq.KitchenRabbit
-	var orderRabbit *rabbitmq.OrderRabbit
-	var server http.Server
-
 	switch flags.Mode {
 	case "order-service":
 		// Initializing rabbitmq for orders
-		orderRabbit, err = rabbitmq.NewOrderRabbit()
+		orderRabbit, err := rabbitmq.NewOrderRabbit()
 		if err != nil {
 			// Gracefull shutdown
 			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -64,12 +58,12 @@ func main() {
 		logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": orderRabbit.DurationMs})
 
 		// Initializing Order-service
-		orderService = order.NewOrderHandler(repo, orderRabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
+		orderService := order.NewOrderHandler(repo, orderRabbit, flags.Order.MaxConcurrent, flags.Order.Port, logger)
 
 		// Initializing Mux
 		mux := http.NewServeMux()
 		mux.HandleFunc("POST /orders", orderService.PostOrder)
-		server = http.Server{
+		server := http.Server{
 			Addr:    fmt.Sprintf(":%d", flags.Order.Port),
 			Handler: mux,
 		}
@@ -86,7 +80,7 @@ func main() {
 		orderService.Stop(ctx, &server)
 	case "kitchen-worker":
 		// Initializing rabbitmq for kitchen
-		kitchenRabbit, err = rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName)
+		kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName)
 		if err != nil {
 			// Gracefull shutdown
 			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -94,7 +88,7 @@ func main() {
 		}
 		logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": kitchenRabbit.DurationMs})
 
-		kitchenService = kitchen.NewKitchen(repo, kitchenRabbit, flags.Kitchen, logger)
+		kitchenService := kitchen.NewKitchen(repo, kitchenRabbit, flags.Kitchen, logger)
 		err = kitchenService.Start(ctx)
 		if err != nil {
 			// ERROR LOGGER -----------------------------------------------------
