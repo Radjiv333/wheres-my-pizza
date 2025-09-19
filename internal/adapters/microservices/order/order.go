@@ -1,9 +1,11 @@
 package order
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
+	"time"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
@@ -28,8 +30,16 @@ func NewOrderHandler(repo *repository.Repository, rabbit *rabbitmq.OrderRabbit, 
 	return &OrderService{maxConcurrent: maxConcurrent, rabbit: rabbit, port: port, repo: repo, logger: logger}
 }
 
-func (o *OrderService) Stop() {
-	fmt.Println("Stop function")
+func (o *OrderService) Stop(ctx context.Context, server *http.Server) {
+	<-ctx.Done()
+	o.repo.Conn.Close()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("server shutdown failed: %+v", err)
+	}
+	o.rabbit.Close()
+	log.Println("shutting down gracefully...")
 }
 
 func (o *OrderService) PostOrder(w http.ResponseWriter, r *http.Request) {

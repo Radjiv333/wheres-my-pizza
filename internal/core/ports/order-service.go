@@ -1,8 +1,11 @@
 package ports
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+)
 
 type OrderServiceInterface interface {
-	Stop()
+	Stop(ctx context.Context, server *http.Server)
 	PostOrder(w http.ResponseWriter, r *http.Request)
 }

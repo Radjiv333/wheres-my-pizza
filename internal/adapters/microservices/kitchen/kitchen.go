@@ -52,11 +52,11 @@ func (k *KitchenService) Start(ctx context.Context) error {
 		return err
 	}
 
-	go newFunc(ctx, ch)
+	go getOrder(ctx, ch)
 	return nil
 }
 
-func newFunc(ctx context.Context, ch <-chan domain.Order) {
+func getOrder(ctx context.Context, ch <-chan domain.Order) {
 	for {
 		select {
 		case order := <-ch:
@@ -65,4 +65,15 @@ func newFunc(ctx context.Context, ch <-chan domain.Order) {
 			return
 		}
 	}
+}
+
+func (k *KitchenService) Stop(ctx context.Context) {
+	<-ctx.Done()
+	err := k.repo.UpdateWorkerStatus(context.Background(), k.kitchenFlags.WorkerName, "offline")
+	if err != nil {
+		fmt.Printf("db cannot gracefully shutdown: %v\n", err)
+	}
+	k.repo.Conn.Close()
+
+	fmt.Println("shutting down gracefully...")
 }

@@ -3,12 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/microservices/kitchen"
@@ -84,6 +82,8 @@ func main() {
 				os.Exit(1)
 			}
 		}()
+
+		orderService.Stop(ctx, &server)
 	case "kitchen-worker":
 		// Initializing rabbitmq for kitchen
 		kitchenRabbit, err = rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName)
@@ -103,22 +103,6 @@ func main() {
 			os.Exit(1)
 		}
 
+		kitchenService.Stop(ctx)
 	}
-
-	// Waiting for Ctrl+C signal
-	<-ctx.Done()
-	err = repo.UpdateWorkerStatus(context.Background(), flags.Kitchen.WorkerName, "offline")
-	if err != nil {
-		fmt.Printf("db cannot gracefully shutdown: %v\n", err)
-	}
-	repo.Conn.Close()
-	orderRabbit.Close()
-	kitchenRabbit.Close()
-	// rabbit.Conn.Close()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("server shutdown failed: %+v", err)
-	}
-	log.Println("shutting down gracefully...")
 }
