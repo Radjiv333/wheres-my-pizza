@@ -11,6 +11,7 @@ import (
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/config"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -166,3 +167,39 @@ func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderT
 // 	_, err := r.Conn.Exec(ctx, updateSQL, workerName, time.Now().UTC())
 // 	return err
 // }
+
+func (r *Repository) UpdateOrder(ctx context.Context, workerName string, status string, id int) error {
+	tx, err := r.Conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Step 1: Update orders table
+	updateSQL := `
+        update orders
+        set status = $1, processed_by = $2
+        where id = $3
+    `
+	_, err = tx.Exec(ctx, updateSQL, "cooking", workerName, id)
+	if err != nil {
+		return err
+	}
+
+	// Step 2: Insert into order_status_log
+	insertSQL := `
+        insert into order_status_log (order_id, status, changed_by)
+        values ($1, $2, $3)
+    `
+	_, err = tx.Exec(ctx, insertSQL, id, "cooking", workerName)
+	if err != nil {
+		return err
+	}
+
+	// Commit both changes
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -72,7 +72,7 @@ func SetupKitchenChannel(ch *amqp.Channel) error {
 	return nil
 }
 
-func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string) (chan domain.Order, error) {
+func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, errCh chan error) (chan domain.Order, error) {
 	var queues []string
 	for _, orderType := range orderTypes {
 		queues = append(queues, "kitchen_"+orderType+"_queue")
@@ -94,7 +94,7 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string) 
 			return nil, err
 		}
 	}
-	ch := make(chan domain.Order)
+	orderCh := make(chan domain.Order)
 	// Consuming messages
 	for _, queueName := range queues {
 		msgs, err := r.Ch.Consume(
@@ -110,13 +110,13 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string) 
 			log.Fatalf("Failed to register a consumer for queue %s: %s", queueName, err)
 		}
 
-		go r.handleMessages(msgs, ch) // Start a goroutine for consuming messages from each queue
+		go r.handleMessages(msgs, orderCh, errCh) // Start a goroutine for consuming messages from each queue
 	}
 
-	return ch, nil
+	return orderCh, nil
 }
 
-func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, ch chan<- domain.Order) error {
+func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, orderCh chan<- domain.Order, errCh <-chan error) error {
 	for msg := range msgs {
 
 		order := domain.Order{}
@@ -130,12 +130,18 @@ func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, ch chan<- doma
 			continue
 		}
 
-		// Process the message (your logic here)
+		// Process the message
 		log.Printf("Worker %s is processing order type %s", r.workerName, order.Type)
 
 		// After processing, acknowledge the message
-		msg.Ack(false)
-		ch <- order
+		orderCh <- order
+		err = <-errCh
+		if err != nil {
+			msg.Nack(false, true)
+		} else {
+			msg.Ack(false)
+		}
+
 	}
 	return nil
 }

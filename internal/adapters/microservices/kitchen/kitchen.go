@@ -47,20 +47,24 @@ func (k *KitchenService) Start(ctx context.Context) error {
 		}
 	}
 
-	ch, err := k.rabbit.ConsumeMessages(ctx, k.kitchenFlags.WorkerName)
+	errCh := make(chan error)
+	ch, err := k.rabbit.ConsumeMessages(ctx, k.kitchenFlags.WorkerName, errCh)
 	if err != nil {
 		return err
 	}
 
-	go getOrder(ctx, ch)
+	go k.getOrder(ctx, ch, errCh)
 	return nil
 }
 
-func getOrder(ctx context.Context, ch <-chan domain.Order) {
+func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Order, errCh chan error) {
 	for {
 		select {
-		case order := <-ch:
-			fmt.Println("hello world", order)
+		case order := <-orderCh:
+			err := k.repo.UpdateOrder(ctx, k.kitchenFlags.WorkerName, "cooking", order.ID)
+			if err != nil {
+				errCh <- err
+			}
 		case <-ctx.Done():
 			return
 		}

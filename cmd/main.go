@@ -37,7 +37,6 @@ func main() {
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
-		// Gracefull shutdown
 		fmt.Printf("cannot connect to db: %v\n", err)
 		os.Exit(1)
 	}
@@ -88,6 +87,7 @@ func main() {
 		}
 		logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": kitchenRabbit.DurationMs})
 
+		// Initializing Kitchen service
 		kitchenService := kitchen.NewKitchen(repo, kitchenRabbit, flags.Kitchen, logger)
 		err = kitchenService.Start(ctx)
 		if err != nil {
