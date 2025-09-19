@@ -55,8 +55,6 @@ func SetupOrderChannel(ch *amqp.Channel) error {
 		return err
 	}
 
-	
-
 	return nil
 }
 
@@ -90,3 +88,7 @@ func (r *OrderRabbit) PublishOrderMessage(ctx context.Context, order domain.Orde
 	return nil
 }
 
+func (r *OrderRabbit) Close() {
+	r.Ch.Close()
+	r.Conn.Close()
+}

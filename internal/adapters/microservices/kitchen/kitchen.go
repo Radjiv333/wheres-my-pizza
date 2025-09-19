@@ -6,6 +6,7 @@ import (
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
+	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
 	"wheres-my-pizza/pkg/logger"
@@ -46,6 +47,22 @@ func (k *KitchenService) Start(ctx context.Context) error {
 		}
 	}
 
-	k.rabbit.ConsumeMessages(k.kitchenFlags.WorkerName)
+	ch, err := k.rabbit.ConsumeMessages(ctx, k.kitchenFlags.WorkerName)
+	if err != nil {
+		return err
+	}
+
+	go newFunc(ctx, ch)
 	return nil
+}
+
+func newFunc(ctx context.Context, ch <-chan domain.Order) {
+	for {
+		select {
+		case order := <-ch:
+			fmt.Println("hello world", order)
+		case <-ctx.Done():
+			return
+		}
+	}
 }

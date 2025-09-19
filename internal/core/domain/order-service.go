@@ -9,7 +9,6 @@ type Order struct {
 	Number          string    `json:"number"` // i dont know what it is
 	CustomerName    string    `json:"customer_name"`
 	Type            string    `json:"order_type"` // dine_in, takeout, delivery
-	TypesArray      []string
 	TableNumber     *int        `json:"table_number"`     // nullable
 	DeliveryAddress *string     `json:"delivery_address"` // nullable
 	TotalAmount     float64     `json:"total_amount"`

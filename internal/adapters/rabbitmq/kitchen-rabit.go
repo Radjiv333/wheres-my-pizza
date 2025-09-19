@@ -1,9 +1,12 @@
 package rabbitmq
 
 import (
-	"fmt"
+	"context"
+	"encoding/json"
 	"log"
 	"time"
+
+	"wheres-my-pizza/internal/core/domain"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -24,9 +27,11 @@ type KitchenRabbit struct {
 	Conn       *amqp.Connection
 	Ch         *amqp.Channel
 	DurationMs time.Duration
+	workerType []string
+	workerName string
 }
 
-func NewKitchenRabbit() (*KitchenRabbit, error) {
+func NewKitchenRabbit(workerType []string, workerName string) (*KitchenRabbit, error) {
 	start := time.Now()
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
@@ -42,7 +47,7 @@ func NewKitchenRabbit() (*KitchenRabbit, error) {
 
 	durationMs := time.Since(start).Milliseconds()
 
-	rabbit := &KitchenRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs)}
+	rabbit := &KitchenRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs), workerType: workerType, workerName: workerName}
 	return rabbit, nil
 }
 
@@ -67,49 +72,31 @@ func SetupKitchenChannel(ch *amqp.Channel) error {
 	return nil
 }
 
-func (r *KitchenRabbit) ConsumeMessages(workerName string) error {
-	// GENERAL QUEUE
-	_, err := r.Ch.QueueDeclare("kitchen_queue", true, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-	err = r.Ch.QueueBind("kitchen_queue", "kitchen.*.*", "orders_topic", false, nil)
-	if err != nil {
-		return err
-	}
-	msgs, err := r.Ch.Consume(
-		"kitchen_queue", // queue
-		"",              // consumer tag
-		false,           // auto-ack
-		false,           // exclusive
-		false,           // no-local
-		false,           // no-wait
-		nil,             // args
-	)
-	if err != nil {
-		return err
-	}
-	go r.handleMessages(msgs, workerName) // Start a goroutine for consuming messages from each queue
-
-	// SPECIFIC QUEUES
-	var specificQueues []string
+func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string) (chan domain.Order, error) {
+	var queues []string
 	for _, orderType := range orderTypes {
-		specificQueues = append(specificQueues, "kitchen_"+orderType+"_queue")
+		queues = append(queues, "kitchen_"+orderType+"_queue")
 	}
-	fmt.Println(specificQueues)
+	queues = append(queues, "kitchen_queue")
 
-	for i, queueName := range specificQueues {
+	// Queue declaring and binding
+	for i, queueName := range queues {
 		_, err := r.Ch.QueueDeclare(queueName, true, false, false, false, nil)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		err = r.Ch.QueueBind(specificQueues[i], "kitchen."+orderTypes[i]+".*", "orders_topic", false, nil)
+		if queueName == "kitchen_queue" {
+			err = r.Ch.QueueBind(queues[i], "kitchen.*", "orders_topic", false, nil)
+		} else {
+			err = r.Ch.QueueBind(queues[i], "kitchen."+orderTypes[i]+".*", "orders_topic", false, nil)
+		}
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-
-	for _, queueName := range specificQueues {
+	ch := make(chan domain.Order)
+	// Consuming messages
+	for _, queueName := range queues {
 		msgs, err := r.Ch.Consume(
 			queueName, // queue
 			"",        // consumer tag
@@ -123,37 +110,46 @@ func (r *KitchenRabbit) ConsumeMessages(workerName string) error {
 			log.Fatalf("Failed to register a consumer for queue %s: %s", queueName, err)
 		}
 
-		go r.handleMessages(msgs, workerName) // Start a goroutine for consuming messages from each queue
+		go r.handleMessages(msgs, ch) // Start a goroutine for consuming messages from each queue
 	}
-	select {}
+
+	return ch, nil
 }
 
-func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, workerName string) {
+func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, ch chan<- domain.Order) error {
 	for msg := range msgs {
-		// Deserialize the message body (e.g., JSON to struct)
-		orderType := string(msg.Body) // Assuming the body is a string for this example
 
+		order := domain.Order{}
+		err := json.Unmarshal(msg.Body, &order)
+		if err != nil {
+			return err
+		}
 		// Check if the worker is specialized for this order type
-		if !r.isSpecializedForOrderType(orderType) {
-			// Negatively acknowledge the message and requeue it
-			log.Printf("Worker %s is not specialized for order type %s, rejecting message", workerName, orderType)
+		if !r.isSpecializedForOrderType(order.Type) {
 			msg.Nack(false, true) // requeue the message
 			continue
 		}
 
 		// Process the message (your logic here)
-		log.Printf("Worker %s is processing order type %s", workerName, orderType)
+		log.Printf("Worker %s is processing order type %s", r.workerName, order.Type)
 
 		// After processing, acknowledge the message
 		msg.Ack(false)
+		ch <- order
 	}
+	return nil
 }
 
-func (w *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
-	for _, t := range orderTypes {
+func (r *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
+	for _, t := range r.workerType {
 		if t == orderType {
 			return true
 		}
 	}
 	return false
+}
+
+func (r *KitchenRabbit) Close() {
+	r.Ch.Close()
+	r.Conn.Close()
 }

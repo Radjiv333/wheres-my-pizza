@@ -50,11 +50,14 @@ func main() {
 
 	var orderService *order.OrderService
 	var kitchenService *kitchen.KitchenService
+	var kitchenRabbit *rabbitmq.KitchenRabbit
+	var orderRabbit *rabbitmq.OrderRabbit
 	var server http.Server
+
 	switch flags.Mode {
 	case "order-service":
 		// Initializing rabbitmq for orders
-		orderRabbit, err := rabbitmq.NewOrderRabbit()
+		orderRabbit, err = rabbitmq.NewOrderRabbit()
 		if err != nil {
 			// Gracefull shutdown
 			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -83,7 +86,7 @@ func main() {
 		}()
 	case "kitchen-worker":
 		// Initializing rabbitmq for kitchen
-		kitchenRabbit, err := rabbitmq.NewKitchenRabbit()
+		kitchenRabbit, err = rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName)
 		if err != nil {
 			// Gracefull shutdown
 			fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -109,7 +112,8 @@ func main() {
 		fmt.Printf("db cannot gracefully shutdown: %v\n", err)
 	}
 	repo.Conn.Close()
-	// rabbit.Ch.Close()
+	orderRabbit.Close()
+	kitchenRabbit.Close()
 	// rabbit.Conn.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
