@@ -277,3 +277,24 @@ func (r *Repository) UpdateWorkerHeartbeat(ctx context.Context, workerName strin
 	_, err := r.Conn.Exec(ctx, updateSQL, workerName)
 	return err
 }
+
+// TRACKING SERVICE
+type OrderDetailsResponse struct {
+	OrderNumber         string    `json:"order_number"`
+	CurrentStatus       string    `json:"current_status"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	EstimatedCompletion time.Time `json:"estimated_completion"`
+	ProcessedBy         string    `json:"processed_by"`
+}
+
+func (r *Repository) GetOrderDetails(ctx context.Context, orderNumber string) (OrderDetailsResponse, error) {
+	const q = `
+		SELECT number, status, completed_at, processed_by, updated_at
+		FROM orders
+		WHERE number = $1
+	`
+	orderDetails := OrderDetailsResponse{}
+	err := r.Conn.QueryRow(ctx, q, orderNumber).Scan(&orderDetails.OrderNumber, &orderDetails.CurrentStatus, &orderDetails.EstimatedCompletion, &orderDetails.ProcessedBy, &orderDetails.UpdatedAt)
+
+	return OrderDetailsResponse{}, err
+}
