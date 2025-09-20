@@ -72,7 +72,6 @@ func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Reposi
 }
 
 func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc) {
-
 	// Initializing Order-service
 	trackingService := tracking.NewTrackingHandler(repo, flags.Order.Port, logger)
 
@@ -89,7 +88,7 @@ func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repos
 	}
 	// Starting server
 	go func() {
-		logger.Info("", "service_started", "Order Service started on port"+server.Addr, map[string]interface{}{"details": map[string]interface{}{"port": flags.Order.Port, "max_concurrent": flags.Order.MaxConcurrent}})
+		logger.Info("", "service_started", "Tracking Service started on port"+server.Addr, map[string]interface{}{"port": flags.Order.Port})
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			stop()
 			fmt.Printf("cannot start server: %v\n", err)

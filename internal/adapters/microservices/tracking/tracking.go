@@ -26,6 +26,7 @@ func NewTrackingHandler(repo *repository.Repository, port int, logger *logger.Lo
 
 func (t *TrackingService) GetOrderDetails(w http.ResponseWriter, r *http.Request) {
 	orderNumber := r.PathValue("order_number")
+	t.logger.Info(orderNumber, "request_received", "Receiving anyAPI request", map[string]interface{}{"endpoint": r.URL.Path})
 	ctx := r.Context()
 
 	orderDetails, err := t.repo.GetOrderDetails(ctx, orderNumber)
@@ -33,6 +34,7 @@ func (t *TrackingService) GetOrderDetails(w http.ResponseWriter, r *http.Request
 		http.Error(w, "order was not found", http.StatusNotFound)
 		return
 	} else if err != nil {
+		t.logger.Error(orderNumber, "db_query_failed", "Database query failed", err, map[string]interface{}{"endpoint": r.URL.Path})
 		http.Error(w, "could not get order details from db: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -54,6 +56,7 @@ func (t *TrackingService) GetOrderHistory(w http.ResponseWriter, r *http.Request
 
 	history, err := t.repo.GetOrderHistory(ctx, orderNumber)
 	if err != nil {
+		t.logger.Error(orderNumber, "db_query_failed", "Database query failed", err, map[string]interface{}{"endpoint": r.URL.Path})
 		http.Error(w, "could not get order history: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -71,6 +74,7 @@ func (t *TrackingService) GetWorkersStatuses(w http.ResponseWriter, r *http.Requ
 
 	workers, err := t.repo.GetWorkersStatuses(ctx, time.Duration(50))
 	if err != nil {
+		t.logger.Error("", "db_query_failed", "Database query failed", err, map[string]interface{}{"endpoint": r.URL.Path})
 		http.Error(w, "could not get workers statuses: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
