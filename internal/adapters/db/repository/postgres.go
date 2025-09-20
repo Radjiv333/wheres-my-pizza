@@ -289,16 +289,19 @@ func (r *Repository) GetOrderDetails(ctx context.Context, orderNumber string) (d
 	orderDetails := domain.OrderDetailsResponse{}
 	err := r.Conn.QueryRow(ctx, q, orderNumber).Scan(&orderDetails.OrderNumber, &orderDetails.CurrentStatus, &orderDetails.EstimatedCompletion, &orderDetails.ProcessedBy, &orderDetails.UpdatedAt)
 
-	return domain.OrderDetailsResponse{}, err
+	return orderDetails, err
 }
 
 func (r *Repository) GetOrderHistory(ctx context.Context, orderNumber string) ([]map[string]interface{}, error) {
 	const q = `
-		SELECT osl.status, osl.changed_by, osl.changed_at
+		SELECT 
+			osl.status, 
+			COALESCE(osl.changed_by, '') AS changed_by, 
+			osl.changed_at
 		FROM order_status_log osl
 		JOIN orders o ON o.id = osl.order_id
 		WHERE o.number = $1
-		ORDER BY osl.changed_at ASC
+		ORDER BY osl.changed_at ASC;
 	`
 	rows, err := r.Conn.Query(ctx, q, orderNumber)
 	if err != nil {

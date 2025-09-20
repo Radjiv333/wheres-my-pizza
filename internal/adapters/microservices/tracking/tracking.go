@@ -15,9 +15,9 @@ import (
 )
 
 type TrackingService struct {
-	port             int
-	repo             *repository.Repository
-	logger           *logger.Logger
+	port   int
+	repo   *repository.Repository
+	logger *logger.Logger
 }
 
 func NewTrackingHandler(repo *repository.Repository, port int, logger *logger.Logger) *TrackingService {
@@ -42,7 +42,9 @@ func (t *TrackingService) GetOrderDetails(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Cannot marshal the order", http.StatusInternalServerError)
 		return
 	}
-	services.WriteJSON(w, resp, http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(resp)
 }
 
 // GET /orders/{order_number}/history

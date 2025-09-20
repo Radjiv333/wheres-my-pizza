@@ -47,7 +47,7 @@ func main() {
 		app.Order(ctx, logger, repo, flags, stop)
 	case "kitchen-worker":
 		app.Kitchen(ctx, logger, repo, flags, stop)
-	case "tracking":
+	case "tracking-service":
 		app.Tracking(ctx, logger, repo, flags, stop)
 	}
 }
