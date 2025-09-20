@@ -48,6 +48,6 @@ func main() {
 	case "kitchen-worker":
 		app.Kitchen(ctx, logger, repo, flags, stop)
 	case "tracking":
-		app.Tracking()
+		app.Tracking(ctx, logger, repo, flags, stop)
 	}
 }

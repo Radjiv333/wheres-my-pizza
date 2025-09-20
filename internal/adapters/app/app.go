@@ -73,14 +73,14 @@ func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Reposi
 
 func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc) {
 	// Initializing Order-service
-	trackingService := tracking.NewTrackingHandler(repo, flags.Order.Port, logger)
+	trackingService := tracking.NewTrackingHandler(repo, flags.Order.Port, logger, flags.Kitchen.HeartbeatInterval)
 
 	// Initializing Mux
 	trackingMUX := http.NewServeMux()
 
 	trackingMUX.HandleFunc("GET /orders/{order_number}/status", trackingService.GetOrderDetails)
 	trackingMUX.HandleFunc("GET /orders/{order_number}/history", trackingService.GetOrderHistory)
-	trackingMUX.HandleFunc("GET /workers/status", trackingService.GetWorkersStatus)
+	trackingMUX.HandleFunc("GET /workers/status", trackingService.GetWorkersStatuses)
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", flags.Order.Port),
@@ -96,5 +96,5 @@ func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repos
 		}
 	}()
 
-	orderService.Stop(ctx, &server)
+	trackingService.Stop(ctx, &server)
 }

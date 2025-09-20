@@ -279,22 +279,84 @@ func (r *Repository) UpdateWorkerHeartbeat(ctx context.Context, workerName strin
 }
 
 // TRACKING SERVICE
-type OrderDetailsResponse struct {
-	OrderNumber         string    `json:"order_number"`
-	CurrentStatus       string    `json:"current_status"`
-	UpdatedAt           time.Time `json:"updated_at"`
-	EstimatedCompletion time.Time `json:"estimated_completion"`
-	ProcessedBy         string    `json:"processed_by"`
-}
 
-func (r *Repository) GetOrderDetails(ctx context.Context, orderNumber string) (OrderDetailsResponse, error) {
+func (r *Repository) GetOrderDetails(ctx context.Context, orderNumber string) (domain.OrderDetailsResponse, error) {
 	const q = `
 		SELECT number, status, completed_at, processed_by, updated_at
 		FROM orders
 		WHERE number = $1
 	`
-	orderDetails := OrderDetailsResponse{}
+	orderDetails := domain.OrderDetailsResponse{}
 	err := r.Conn.QueryRow(ctx, q, orderNumber).Scan(&orderDetails.OrderNumber, &orderDetails.CurrentStatus, &orderDetails.EstimatedCompletion, &orderDetails.ProcessedBy, &orderDetails.UpdatedAt)
 
-	return OrderDetailsResponse{}, err
+	return domain.OrderDetailsResponse{}, err
+}
+
+func (r *Repository) GetOrderHistory(ctx context.Context, orderNumber string) ([]map[string]interface{}, error) {
+	const q = `
+		SELECT osl.status, osl.changed_by, osl.changed_at
+		FROM order_status_log osl
+		JOIN orders o ON o.id = osl.order_id
+		WHERE o.number = $1
+		ORDER BY osl.changed_at ASC
+	`
+	rows, err := r.Conn.Query(ctx, q, orderNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var history []map[string]interface{}
+	for rows.Next() {
+		var status, changedBy string
+		var ts time.Time
+		if err := rows.Scan(&status, &changedBy, &ts); err != nil {
+			return nil, err
+		}
+		history = append(history, map[string]interface{}{
+			"status":     status,
+			"timestamp":  ts.UTC(),
+			"changed_by": changedBy,
+		})
+	}
+
+	return history, err
+}
+
+func (r *Repository) GetWorkersStatuses(ctx context.Context, heartbeatTimeout time.Duration) ([]map[string]interface{}, error) {
+	const q = `
+		SELECT name, status, orders_processed, last_seen
+		FROM workers
+	`
+	rows, err := r.Conn.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var workers []map[string]interface{}
+	now := time.Now().UTC()
+
+	for rows.Next() {
+		var name, status string
+		var ordersProcessed int
+		var lastSeen time.Time
+		if err := rows.Scan(&name, &status, &ordersProcessed, &lastSeen); err != nil {
+			return nil, err
+		}
+
+		// Check offline threshold
+		if now.Sub(lastSeen) > heartbeatTimeout {
+			status = "offline"
+		}
+
+		workers = append(workers, map[string]interface{}{
+			"worker_name":      name,
+			"status":           status,
+			"orders_processed": ordersProcessed,
+			"last_seen":        lastSeen.UTC(),
+		})
+	}
+
+	return workers, err
 }
