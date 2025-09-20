@@ -49,5 +49,7 @@ func main() {
 		app.Kitchen(ctx, logger, repo, flags, stop)
 	case "tracking-service":
 		app.Tracking(ctx, logger, repo, flags, stop)
+	case "notification-service":
+		app.Notification(ctx, logger)
 	}
 }

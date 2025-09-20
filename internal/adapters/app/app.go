@@ -8,6 +8,7 @@ import (
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/microservices/kitchen"
+	"wheres-my-pizza/internal/adapters/microservices/notifications"
 	"wheres-my-pizza/internal/adapters/microservices/order"
 	"wheres-my-pizza/internal/adapters/microservices/tracking"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
@@ -97,4 +98,20 @@ func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repos
 	}()
 
 	trackingService.Stop(ctx, &server)
+}
+
+func Notification(ctx context.Context, logger *logger.Logger) {
+	// Initializing rabbitmq for orders
+	notifRabbit, err := rabbitmq.NewNotificationRabbit(logger)
+	if err != nil {
+		// Gracefull shutdown
+		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
+		os.Exit(1)
+	}
+	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": notifRabbit.DurationMs})
+
+	// Initializing Order-service
+	notifService := notifications.NewNotificationService(notifRabbit, logger)
+	err = notifService.Start(ctx)
+	notifService.Stop(ctx)
 }

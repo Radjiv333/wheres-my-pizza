@@ -54,7 +54,10 @@ func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *l
 		return nil, err
 	}
 
-	setupKitchenChannel(ch, qos)
+	err = setupKitchenChannel(ch, qos)
+	if err != nil {
+		return nil, err
+	}
 
 	durationMs := time.Since(start).Milliseconds()
 
