@@ -184,21 +184,17 @@ func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order do
 		return fmt.Errorf("failed to marshal order message: %w", err)
 	}
 
-	// Create routing key: kitchen.{order_type}.{priority}
-	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
-
 	// Publish to exchange
 	err = r.Ch.PublishWithContext(
-		ctx,            // context
-		"orders_topic", // exchange
-		routingKey,     // routing key
-		false,          // mandatory
-		false,          // immediate
+		ctx,                    // context
+		"notifications_fanout", // exchange
+		"",                     // routing key
+		false,                  // mandatory
+		false,                  // immediate
 		amqp.Publishing{
 			ContentType:  "application/json",
 			Body:         body,
 			DeliveryMode: amqp.Persistent, // make message persistent
-			Priority:     uint8(order.Priority),
 		},
 	)
 	if err != nil {

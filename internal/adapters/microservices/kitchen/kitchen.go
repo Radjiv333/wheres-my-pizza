@@ -49,13 +49,19 @@ func (k *KitchenService) Start(ctx context.Context) error {
 	}
 
 	errCh := make(chan error)
-	ch, err := k.rabbit.ConsumeMessages(ctx, k.kitchenFlags.WorkerName, errCh)
+	orderCh := make(chan domain.Order)
+	orderCh, err = k.rabbit.ConsumeMessages(ctx, k.kitchenFlags.WorkerName, errCh)
 	if err != nil {
 		return err
 	}
 
-	go k.getOrder(ctx, ch, errCh)
-	return nil
+	go k.getOrder(ctx, orderCh, errCh)
+
+	newErrCh := make(chan error)
+	go k.workerHeartbeat(ctx, 30*time.Second, newErrCh)
+
+	err = <-newErrCh
+	return err
 }
 
 func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Order, errCh chan error) {
@@ -63,7 +69,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 	for {
 		select {
 		case order := <-orderCh:
-			err := k.repo.OrderIsCooking(ctx, k.kitchenFlags.WorkerName, "cooking", order.ID)
+			err := k.repo.OrderIsCooking(ctx, k.kitchenFlags.WorkerName, order.ID)
 			if err != nil {
 				errCh <- err
 			}
@@ -90,7 +96,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			// Simulating work of workers
 			k.simulateWork(ctx, cookingTime)
 
-			err = k.repo.OrderIsReady(ctx, order.ID, k.kitchenFlags.WorkerName)
+			err = k.repo.OrderIsReady(ctx, k.kitchenFlags.WorkerName, order.ID)
 			if err != nil {
 				errCh <- err
 			}
@@ -120,6 +126,24 @@ Loop:
 		}
 	}
 	fmt.Println("finished cooking!")
+}
+
+func (k *KitchenService) workerHeartbeat(ctx context.Context, interval time.Duration, errCh chan error) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := k.repo.UpdateWorkerHeartbeat(ctx, k.kitchenFlags.WorkerName)
+			if err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}
 }
 
 func (k *KitchenService) Stop(ctx context.Context) {

@@ -125,7 +125,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 	return order.Number, nil
 }
 
-func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, status string, id int) error {
+func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, id int) error {
 	tx, err := r.Conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -174,14 +174,14 @@ func (r *Repository) GetOrderStatus(ctx context.Context, orderID int) (string, e
 	return status, nil
 }
 
-func (r *Repository) OrderIsReady(ctx context.Context, orderID int, workerName string) error {
+func (r *Repository) OrderIsReady(ctx context.Context, workerName string, orderID int) error {
 	tx, err := r.Conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Update order status → ready
+	// Update order status → ready
 	updateOrderSQL := `
         update orders
         set status = 'ready',
@@ -196,7 +196,7 @@ func (r *Repository) OrderIsReady(ctx context.Context, orderID int, workerName s
 		return fmt.Errorf("order %d not found", orderID)
 	}
 
-	// 2. Increment worker’s orders_processed count
+	// Increment worker’s orders_processed count
 	updateWorkerSQL := `
         update workers
         set orders_processed = orders_processed + 1,
@@ -211,6 +211,15 @@ func (r *Repository) OrderIsReady(ctx context.Context, orderID int, workerName s
 		return fmt.Errorf("worker %s not found", workerName)
 	}
 
+	// Insert into order_status_log
+	insertSQL := `
+		insert into order_status_log (order_id, status, changed_by)
+		values ($1, $2, $3)
+	`
+	_, err = tx.Exec(ctx, insertSQL, orderID, "ready", workerName)
+	if err != nil {
+		return err
+	}
 	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
 		return err
@@ -251,4 +260,15 @@ func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (st
 	}
 
 	return status, nil
+}
+
+func (r *Repository) UpdateWorkerHeartbeat(ctx context.Context, workerName string) error {
+	const updateSQL = `
+		update workers
+		set last_seen = now(),
+			status = 'online'
+		where name = $1
+	`
+	_, err := r.Conn.Exec(ctx, updateSQL, workerName)
+	return err
 }
