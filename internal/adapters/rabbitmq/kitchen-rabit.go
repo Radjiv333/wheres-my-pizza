@@ -183,7 +183,7 @@ func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order do
 	if err != nil {
 		return fmt.Errorf("failed to marshal order message: %w", err)
 	}
-	// -------------------------------------------------------------------------------------------------------------------------------------------------------
+
 	// Create routing key: kitchen.{order_type}.{priority}
 	routingKey := fmt.Sprintf("kitchen.%s.%d", order.Type, order.Priority)
 

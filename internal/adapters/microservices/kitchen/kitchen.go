@@ -63,7 +63,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 	for {
 		select {
 		case order := <-orderCh:
-			err := k.repo.UpdateOrder(ctx, k.kitchenFlags.WorkerName, "cooking", order.ID)
+			err := k.repo.OrderIsCooking(ctx, k.kitchenFlags.WorkerName, "cooking", order.ID)
 			if err != nil {
 				errCh <- err
 			}
@@ -71,7 +71,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			if err != nil {
 				errCh <- err
 			}
-			fmt.Println("hello")
+
 			var cookingTime int
 			switch order.Type {
 			case "dine_in":
@@ -87,7 +87,13 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 				errCh <- err
 			}
 
-			err = k.simulateWork(ctx, cookingTime)
+			// Simulating work of workers
+			k.simulateWork(ctx, cookingTime)
+
+			err = k.repo.OrderIsReady(ctx, order.ID, k.kitchenFlags.WorkerName)
+			if err != nil {
+				errCh <- err
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -96,15 +102,22 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 
 func (k *KitchenService) simulateWork(ctx context.Context, cookingTime int) {
 	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
 	counter := 0
 	fmt.Print("cooking")
+Loop:
 	for {
-		<-ticker.C
-		if counter == cookingTime {
-			fmt.Println()
-			break
+		select {
+		case <-ticker.C:
+			if counter == cookingTime {
+				fmt.Println()
+				break Loop
+			}
+			counter++
+			fmt.Print(".")
+		case <-ctx.Done():
+			return
 		}
-		fmt.Print(".")
 	}
 	fmt.Println("finished cooking!")
 }

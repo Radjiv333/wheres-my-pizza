@@ -22,7 +22,6 @@ type Repository struct {
 
 var _ ports.RepositoryInterface = (*Repository)(nil)
 
-// "postgres://username:password@localhost:5432/database_name"
 func NewRepository(cfg config.Config) (*Repository, error) {
 	start := time.Now()
 	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s",
@@ -44,6 +43,7 @@ func NewRepository(cfg config.Config) (*Repository, error) {
 	return &Repository{Conn: conn, DurationMs: time.Duration(durationMs)}, nil
 }
 
+// ORDERS
 func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (string, error) {
 	// Get a pooled connection for transactional work
 	conn, err := r.Conn.Acquire(ctx)
@@ -125,50 +125,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 	return order.Number, nil
 }
 
-func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (string, error) {
-	const selectSQL = `
-		SELECT status FROM workers WHERE name = $1;
-	`
-	var status string
-	err := r.Conn.QueryRow(ctx, selectSQL, workerName).Scan(&status)
-	if err != nil {
-		return status, err
-	}
-
-	return status, nil
-}
-
-func (r *Repository) UpdateWorkerStatus(ctx context.Context, workerName, status string) error {
-	const updateSQL = `
-		UPDATE workers
-		SET status = $1, last_seen = $2
-		WHERE name = $3;
-	`
-	_, err := r.Conn.Exec(ctx, updateSQL, status, time.Now().UTC(), workerName)
-	return err
-}
-
-func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderTypes []string) error {
-	const insertSQL = `
-		INSERT INTO workers (name, type, status, last_seen)
-		VALUES ($1, $2, 'online', $3);
-	`
-	orderTypesStr := strings.Join(orderTypes, ",")
-	_, err := r.Conn.Exec(ctx, insertSQL, workerName, orderTypesStr, time.Now().UTC())
-	return err
-}
-
-// func (r *Repository) Close(ctx context.Context, workerName string) error {
-// 	const updateSQL = `
-// 		UPDATE workers
-// 		SET status = 'offline', last_seen = $2
-// 		WHERE name = $1;
-// 	`
-// 	_, err := r.Conn.Exec(ctx, updateSQL, workerName, time.Now().UTC())
-// 	return err
-// }
-
-func (r *Repository) UpdateOrder(ctx context.Context, workerName string, status string, id int) error {
+func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, status string, id int) error {
 	tx, err := r.Conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -177,10 +134,10 @@ func (r *Repository) UpdateOrder(ctx context.Context, workerName string, status 
 
 	// Step 1: Update orders table
 	updateSQL := `
-        update orders
-        set status = $1, processed_by = $2
-        where id = $3
-    `
+		update orders
+		set status = $1, processed_by = $2
+		where id = $3
+	`
 	_, err = tx.Exec(ctx, updateSQL, "cooking", workerName, id)
 	if err != nil {
 		return err
@@ -188,9 +145,9 @@ func (r *Repository) UpdateOrder(ctx context.Context, workerName string, status 
 
 	// Step 2: Insert into order_status_log
 	insertSQL := `
-        insert into order_status_log (order_id, status, changed_by)
-        values ($1, $2, $3)
-    `
+		insert into order_status_log (order_id, status, changed_by)
+		values ($1, $2, $3)
+	`
 	_, err = tx.Exec(ctx, insertSQL, id, "cooking", workerName)
 	if err != nil {
 		return err
@@ -210,6 +167,85 @@ func (r *Repository) GetOrderStatus(ctx context.Context, orderID int) (string, e
 	`
 	var status string
 	err := r.Conn.QueryRow(ctx, selectSQL, orderID).Scan(&status)
+	if err != nil {
+		return status, err
+	}
+
+	return status, nil
+}
+
+func (r *Repository) OrderIsReady(ctx context.Context, orderID int, workerName string) error {
+	tx, err := r.Conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Update order status → ready
+	updateOrderSQL := `
+        update orders
+        set status = 'ready',
+            completed_at = now()
+        where id = $1
+    `
+	res, err := tx.Exec(ctx, updateOrderSQL, orderID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("order %d not found", orderID)
+	}
+
+	// 2. Increment worker’s orders_processed count
+	updateWorkerSQL := `
+        update workers
+        set orders_processed = orders_processed + 1,
+            last_seen = now()
+        where name = $1
+    `
+	res, err = tx.Exec(ctx, updateWorkerSQL, workerName)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("worker %s not found", workerName)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// KITCHEN WORKERS
+func (r *Repository) InsertWorker(ctx context.Context, workerName string, orderTypes []string) error {
+	const insertSQL = `
+		INSERT INTO workers (name, type, status, last_seen)
+		VALUES ($1, $2, 'online', $3);
+	`
+	orderTypesStr := strings.Join(orderTypes, ",")
+	_, err := r.Conn.Exec(ctx, insertSQL, workerName, orderTypesStr, time.Now().UTC())
+	return err
+}
+
+func (r *Repository) UpdateWorkerStatus(ctx context.Context, workerName, status string) error {
+	const updateSQL = `
+		UPDATE workers
+		SET status = $1, last_seen = $2
+		WHERE name = $3;
+	`
+	_, err := r.Conn.Exec(ctx, updateSQL, status, time.Now().UTC(), workerName)
+	return err
+}
+
+func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (string, error) {
+	const selectSQL = `
+		SELECT status FROM workers WHERE name = $1;
+	`
+	var status string
+	err := r.Conn.QueryRow(ctx, selectSQL, workerName).Scan(&status)
 	if err != nil {
 		return status, err
 	}
