@@ -8,6 +8,9 @@ order:
 kitchen:
 	@go run ./cmd/main.go --mode="kitchen-worker" --worker-name="Bally"
 
+track:
+	@go run ./cmd/main.go --mode="tracking-service" --worker-name="Bally"
+
 build:
 	@echo "Building the project..."
 	go build -o $(PROJECT_NAME) ./cmd/main.go

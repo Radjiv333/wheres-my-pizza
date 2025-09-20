@@ -71,7 +71,11 @@ func FlagParse() (Flags, error) {
 		kitchenFlags := KitchenFlags{WorkerName: *workerName, OrderTypes: orderTypesArr, HeartbeatInterval: *heartbeatInterval, Prefetch: *prefetch}
 		return Flags{Mode: *mode, Kitchen: kitchenFlags}, nil
 	case "tracking-service":
-
+		if !isSetByUser {
+			*port = 3002
+		}
+		orderFlags := OrderFlags{Port: *port}
+		return Flags{Mode: *mode, Order: orderFlags}, nil
 	case "notification-subscriber":
 	default:
 		// ERROR LOGGER

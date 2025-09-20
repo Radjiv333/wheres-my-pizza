@@ -346,7 +346,7 @@ func (r *Repository) GetWorkersStatuses(ctx context.Context, heartbeatTimeout ti
 		}
 
 		// Check offline threshold
-		if now.Sub(lastSeen) > heartbeatTimeout {
+		if now.Sub(lastSeen) > heartbeatTimeout*time.Second {
 			status = "offline"
 		}
 

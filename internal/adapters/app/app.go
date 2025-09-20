@@ -72,8 +72,9 @@ func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Reposi
 }
 
 func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc) {
+
 	// Initializing Order-service
-	trackingService := tracking.NewTrackingHandler(repo, flags.Order.Port, logger, flags.Kitchen.HeartbeatInterval)
+	trackingService := tracking.NewTrackingHandler(repo, flags.Order.Port, logger)
 
 	// Initializing Mux
 	trackingMUX := http.NewServeMux()

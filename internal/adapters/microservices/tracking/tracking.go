@@ -18,12 +18,10 @@ type TrackingService struct {
 	port             int
 	repo             *repository.Repository
 	logger           *logger.Logger
-	heartbeatTimeout time.Duration
 }
 
-func NewTrackingHandler(repo *repository.Repository, port int, logger *logger.Logger, heartbeatTimeout int) *TrackingService {
-	hbt := time.Duration(heartbeatTimeout)
-	return &TrackingService{port: port, repo: repo, logger: logger, heartbeatTimeout: hbt}
+func NewTrackingHandler(repo *repository.Repository, port int, logger *logger.Logger) *TrackingService {
+	return &TrackingService{port: port, repo: repo, logger: logger}
 }
 
 func (t *TrackingService) GetOrderDetails(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +67,7 @@ func (t *TrackingService) GetOrderHistory(w http.ResponseWriter, r *http.Request
 func (t *TrackingService) GetWorkersStatuses(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	workers, err := t.repo.GetWorkersStatuses(ctx, t.heartbeatTimeout)
+	workers, err := t.repo.GetWorkersStatuses(ctx, time.Duration(50))
 	if err != nil {
 		http.Error(w, "could not get workers statuses: "+err.Error(), http.StatusInternalServerError)
 		return

@@ -50,4 +50,3 @@ create table workers (
     "last_seen"         timestamptz default current_timestamp,
     "orders_processed"  integer     default 0
 );
-
