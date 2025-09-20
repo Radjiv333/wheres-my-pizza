@@ -37,7 +37,7 @@ func main() {
 	// Initializing repository
 	repo, err := repository.NewRepository(*cfg)
 	if err != nil {
-		fmt.Printf("cannot connect to db: %v\n", err)
+		logger.Error("", "db_connection_failed", "Database is unreachable after all retries", err, nil)
 		os.Exit(1)
 	}
 	logger.Info("", "db_connected", "Connected to PostgreSQL database", map[string]interface{}{"duration_ms": repo.DurationMs})

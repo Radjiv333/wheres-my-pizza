@@ -35,7 +35,9 @@ func (k *KitchenService) Start(ctx context.Context) error {
 	}
 	switch status {
 	case "online":
-		return fmt.Errorf("worker is already working")
+		err := fmt.Errorf("worker is already working")
+		k.logger.Error("", "worker_registration_failed", "Worker name is a duplicate", err, map[string]interface{}{"worker_name": k.kitchenFlags.WorkerName})
+		return err
 	case "offline":
 		err := k.repo.UpdateWorkerStatus(ctx, k.kitchenFlags.WorkerName, "online")
 		if err != nil {
@@ -140,7 +142,7 @@ func (k *KitchenService) workerHeartbeat(ctx context.Context, interval time.Dura
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			fmt.Println("worker heartbeat...")
+			k.logger.Debug("", "heartbeat_sent", "Heartbeat is successfully sent", map[string]interface{}{"worker_name": k.kitchenFlags.WorkerName})
 			err := k.repo.UpdateWorkerHeartbeat(ctx, k.kitchenFlags.WorkerName)
 			if err != nil {
 				errCh <- err
@@ -152,6 +154,7 @@ func (k *KitchenService) workerHeartbeat(ctx context.Context, interval time.Dura
 
 func (k *KitchenService) Stop(ctx context.Context) {
 	<-ctx.Done()
+	k.logger.Info("", "graceful_shutdown", "Worker starts its shutdown sequence", map[string]interface{}{"worker_name": k.kitchenFlags.WorkerName})
 	err := k.repo.UpdateWorkerStatus(context.Background(), k.kitchenFlags.WorkerName, "offline")
 	if err != nil {
 		fmt.Printf("db cannot gracefully shutdown: %v\n", err)

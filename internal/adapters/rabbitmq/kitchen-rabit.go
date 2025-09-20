@@ -236,16 +236,16 @@ func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, orderCh chan<-
 			continue
 		}
 
-		r.logger.Debug(order.Number, "order_processing_started", "Order is picked from the queue.", map[string]interface{}{"worker_name": r.workerName})
+		r.logger.Debug(order.Number, "order_processing_started", "Order is picked from the queue", map[string]interface{}{"worker_name": r.workerName})
 
 		// After processing, acknowledge the message
 		orderCh <- order
 		err = <-errCh
 		if err != nil {
-			fmt.Printf("error encountered: %v\n", err)
+			r.logger.Error(order.Number, "message_processing_failed", "Unrecoverable processing errors", err, map[string]interface{}{"worker_name": r.workerName})
 			msg.Nack(false, true)
 		} else {
-			fmt.Println("im in ack")
+			r.logger.Debug(order.Number, "order_completed", "Order is fully processed", map[string]interface{}{"worker_name": r.workerName})
 			msg.Ack(false)
 		}
 
