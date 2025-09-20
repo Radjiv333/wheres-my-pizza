@@ -79,7 +79,7 @@ func main() {
 		orderService.Stop(ctx, &server)
 	case "kitchen-worker":
 		// Initializing rabbitmq for kitchen
-		kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName)
+		kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName, flags.Kitchen.Prefetch, logger)
 		if err != nil {
 			// Gracefull shutdown
 			fmt.Printf("cannot connect to rabbitmq: %v\n", err)

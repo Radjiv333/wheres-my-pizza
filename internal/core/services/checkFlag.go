@@ -34,11 +34,11 @@ func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartb
 				return errors.New(errMessage)
 			}
 		}
-		if heartbeatInterval > 50 || heartbeatInterval <= 0 {
+		if heartbeatInterval <= 0 || heartbeatInterval > 50 {
 			errMessage := fmt.Sprintf("invalid 'heartbeat-interval' value: %d", heartbeatInterval)
 			return errors.New(errMessage)
 		}
-		if prefetch > 10 || prefetch <= 0 {
+		if prefetch <= 0 || prefetch > 10 {
 			errMessage := fmt.Sprintf("invalid 'prefetch' value: %d", prefetch)
 			return errors.New(errMessage)
 		}

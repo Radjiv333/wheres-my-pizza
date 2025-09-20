@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/pkg/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -17,11 +18,10 @@ type KitchenRabbitInterface interface{}
 var _ KitchenRabbitInterface = (*KitchenRabbit)(nil)
 
 var (
-	dine_in            string   = "dine_in"
-	takeout            string   = "takeout"
-	delivery           string   = "delivery"
-	orderTypes         []string = []string{dine_in, takeout, delivery}
-	numberOfOrderTypes int      = 3
+	dine_in    string   = "dine_in"
+	takeout    string   = "takeout"
+	delivery   string   = "delivery"
+	orderTypes []string = []string{dine_in, takeout, delivery}
 )
 
 type KitchenRabbit struct {
@@ -30,9 +30,19 @@ type KitchenRabbit struct {
 	DurationMs time.Duration
 	workerType []string
 	workerName string
+	logger     *logger.Logger
 }
 
-func NewKitchenRabbit(workerType []string, workerName string) (*KitchenRabbit, error) {
+type StatusUpdateMessage struct {
+	OrderNumber         string    `json:"order_number"`
+	OldStatus           string    `json:"old_status"`
+	NewStatus           string    `json:"new_status"`
+	ChangedBy           string    `json:"changed_by"`
+	TimeStamp           time.Time `json:"timestamp"`
+	EstimatedCompletion time.Time `json:"estimated_completion"`
+}
+
+func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *logger.Logger) (*KitchenRabbit, error) {
 	start := time.Now()
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
@@ -44,16 +54,16 @@ func NewKitchenRabbit(workerType []string, workerName string) (*KitchenRabbit, e
 		return nil, err
 	}
 
-	SetupKitchenChannel(ch)
+	setupKitchenChannel(ch, qos)
 
 	durationMs := time.Since(start).Milliseconds()
 
-	rabbit := &KitchenRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs), workerType: workerType, workerName: workerName}
+	rabbit := &KitchenRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs), workerType: workerType, workerName: workerName, logger: logger}
 	return rabbit, nil
 }
 
-func SetupKitchenChannel(ch *amqp.Channel) error {
-	// --- Declare Exchanges ---
+func setupKitchenChannel(ch *amqp.Channel, qos int) error {
+	// Orders topic
 	if err := ch.ExchangeDeclare(
 		"orders_topic", // name
 		"topic",        // type
@@ -65,12 +75,71 @@ func SetupKitchenChannel(ch *amqp.Channel) error {
 	); err != nil {
 		return err
 	}
-	err := ch.Qos(10, 0, false) // max 10 unacknowledged messages
+	err := ch.Qos(qos, 0, false) // max 10 unacknowledged messages
 	if err != nil {
 		return err
 	}
 
+	// Notification fanout
+	if err := ch.ExchangeDeclare(
+		"notifications_fanout", // name
+		"fanout",               // type
+		true,                   // durable
+		false,                  // auto-deleted
+		false,                  // internal
+		false,                  // no-wait
+		nil,                    // args
+	); err != nil {
+		return err
+	}
+
+	// Dead letter queue
+	err = ch.ExchangeDeclare(
+		"orders_dlx", // DLX name
+		"topic",      // exchange type
+		true,         // durable
+		false,        // auto-deleted
+		false,        // internal
+		false,        // no-wait
+		nil,          // args
+	)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+// Dead letter queue
+func (r *KitchenRabbit) dlq() (amqp.Table, error) {
+	_, err := r.Ch.QueueDeclare(
+		"orders_dlq", // DLQ name
+		true,         // durable
+		false,        // delete when unused
+		false,        // exclusive
+		false,        // no-wait
+		nil,          // args
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Bind DLQ to DLX
+	err = r.Ch.QueueBind(
+		"orders_dlq",
+		"#",          // catch all
+		"orders_dlx", // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Declare main queue with DLX policy
+	args := amqp.Table{
+		"x-dead-letter-exchange": "orders_dlx",
+	}
+	return args, nil
 }
 
 func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, errCh chan error) (chan domain.Order, error) {
@@ -80,9 +149,14 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, 
 	}
 	queues = append(queues, "kitchen_queue")
 
+	args, err := r.dlq()
+	if err != nil {
+		return nil, err
+	}
+
 	// Queue declaring and binding
 	for i, queueName := range queues {
-		_, err := r.Ch.QueueDeclare(queueName, true, false, false, false, nil)
+		_, err := r.Ch.QueueDeclare(queueName, true, false, false, false, args)
 		if err != nil {
 			return nil, err
 		}
@@ -95,6 +169,7 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, 
 			return nil, err
 		}
 	}
+
 	orderCh := make(chan domain.Order)
 	// Consuming messages
 	for _, queueName := range queues {
@@ -117,67 +192,10 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, 
 	return orderCh, nil
 }
 
-func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, orderCh chan<- domain.Order, errCh <-chan error) error {
-	for msg := range msgs {
-
-		order := domain.Order{}
-		err := json.Unmarshal(msg.Body, &order)
-		if err != nil {
-			return err
-		}
-		// Check if the worker is specialized for this order type
-		if !r.isSpecializedForOrderType(order.Type) {
-			msg.Nack(false, true) // requeue the message
-			continue
-		}
-
-		// Process the message
-		log.Printf("Worker %s is processing order type %s", r.workerName, order.Type)
-
-		// After processing, acknowledge the message
-		orderCh <- order
-		fmt.Println("waiting")
-		err = <-errCh
-		fmt.Println("waited for err")
-		if err != nil {
-			fmt.Printf("error encountered: %v\n", err)
-			msg.Nack(false, true)
-		} else {
-			fmt.Println("im in ack")
-			msg.Ack(false)
-		}
-
-	}
-	return nil
-}
-
-func (r *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
-	for _, t := range r.workerType {
-		if t == orderType {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *KitchenRabbit) Close() {
-	r.Ch.Close()
-	r.Conn.Close()
-}
-
-type StatusUpdateMessage struct {
-	OrderNumber         string    `json:"order_number"`
-	OldStatus           string    `json:"old_status"`
-	NewStatus           string    `json:"new_status"`
-	ChangedBy           string    `json:"changed_by"`
-	TimeStamp           time.Time `json:"timestamp"`
-	EstimatedCompletion time.Time `json:"estimated_completion"`
-}
-
-func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, newOrderStatus, workerName string, seconds int) error {
+func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, oldOrderStatus, workerName string, seconds int) error {
 	t1 := time.Now()
 	t2 := t1.Add(time.Duration(seconds) * time.Second)
-	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: order.Status, NewStatus: newOrderStatus, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
+	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: oldOrderStatus, NewStatus: order.Status, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
 	body, err := json.Marshal(msg)
 	fmt.Println(string(body))
 	if err != nil {
@@ -202,4 +220,49 @@ func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order do
 	}
 
 	return nil
+}
+
+func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, orderCh chan<- domain.Order, errCh <-chan error) error {
+	for msg := range msgs {
+
+		order := domain.Order{}
+		err := json.Unmarshal(msg.Body, &order)
+		if err != nil {
+			return err
+		}
+		// Check if the worker is specialized for this order type
+		if !r.isSpecializedForOrderType(order.Type) {
+			msg.Nack(false, true) // requeue the message
+			continue
+		}
+
+		r.logger.Debug(order.Number, "order_processing_started", "Order is picked from the queue.", map[string]interface{}{"worker_name": r.workerName})
+
+		// After processing, acknowledge the message
+		orderCh <- order
+		err = <-errCh
+		if err != nil {
+			fmt.Printf("error encountered: %v\n", err)
+			msg.Nack(false, true)
+		} else {
+			fmt.Println("im in ack")
+			msg.Ack(false)
+		}
+
+	}
+	return nil
+}
+
+func (r *KitchenRabbit) isSpecializedForOrderType(orderType string) bool {
+	for _, t := range r.workerType {
+		if t == orderType {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *KitchenRabbit) Close() {
+	r.Ch.Close()
+	r.Conn.Close()
 }

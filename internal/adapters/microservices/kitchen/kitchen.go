@@ -47,6 +47,7 @@ func (k *KitchenService) Start(ctx context.Context) error {
 			return err
 		}
 	}
+	k.logger.Info("", "worker_registered", "Successfully registered worker", map[string]interface{}{"worker_name": k.kitchenFlags.WorkerName})
 
 	errCh := make(chan error)
 	orderCh := make(chan domain.Order)
@@ -58,22 +59,21 @@ func (k *KitchenService) Start(ctx context.Context) error {
 	go k.getOrder(ctx, orderCh, errCh)
 
 	newErrCh := make(chan error)
-	go k.workerHeartbeat(ctx, 30*time.Second, newErrCh)
+	go k.workerHeartbeat(ctx, time.Duration(k.kitchenFlags.HeartbeatInterval), newErrCh)
 
-	err = <-newErrCh
-	return err
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-newErrCh:
+		return err
+	}
 }
 
 func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Order, errCh chan error) {
-	fmt.Println("in getOrder")
 	for {
 		select {
 		case order := <-orderCh:
-			err := k.repo.OrderIsCooking(ctx, k.kitchenFlags.WorkerName, order.ID)
-			if err != nil {
-				errCh <- err
-			}
-			newOrderStatus, err := k.repo.GetOrderStatus(ctx, order.ID)
+			err := k.repo.OrderIsCooking(ctx, k.kitchenFlags.WorkerName, &order)
 			if err != nil {
 				errCh <- err
 			}
@@ -88,7 +88,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 				cookingTime = 12
 			}
 
-			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, newOrderStatus, k.kitchenFlags.WorkerName, cookingTime)
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "cooking", k.kitchenFlags.WorkerName, cookingTime)
 			if err != nil {
 				errCh <- err
 			}
@@ -96,10 +96,13 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			// Simulating work of workers
 			k.simulateWork(ctx, cookingTime)
 
-			err = k.repo.OrderIsReady(ctx, k.kitchenFlags.WorkerName, order.ID)
+			err = k.repo.OrderIsReady(ctx, k.kitchenFlags.WorkerName, &order)
 			if err != nil {
 				errCh <- err
 			}
+
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "ready", k.kitchenFlags.WorkerName, cookingTime)
+			errCh <- err
 		case <-ctx.Done():
 			return
 		}
@@ -129,7 +132,7 @@ Loop:
 }
 
 func (k *KitchenService) workerHeartbeat(ctx context.Context, interval time.Duration, errCh chan error) {
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(interval * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -137,6 +140,7 @@ func (k *KitchenService) workerHeartbeat(ctx context.Context, interval time.Dura
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			fmt.Println("worker heartbeat...")
 			err := k.repo.UpdateWorkerHeartbeat(ctx, k.kitchenFlags.WorkerName)
 			if err != nil {
 				errCh <- err

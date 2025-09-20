@@ -125,20 +125,19 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 	return order.Number, nil
 }
 
-func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, id int) error {
+func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, order *domain.Order) error {
 	tx, err := r.Conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
-
 	// Step 1: Update orders table
 	updateSQL := `
 		update orders
-		set status = $1, processed_by = $2
-		where id = $3
-	`
-	_, err = tx.Exec(ctx, updateSQL, "cooking", workerName, id)
+		set status = 'cooking', processed_by = $1
+		where id = $2
+		`
+	_, err = tx.Exec(ctx, updateSQL, workerName, order.ID)
 	if err != nil {
 		return err
 	}
@@ -147,8 +146,8 @@ func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, id i
 	insertSQL := `
 		insert into order_status_log (order_id, status, changed_by)
 		values ($1, $2, $3)
-	`
-	_, err = tx.Exec(ctx, insertSQL, id, "cooking", workerName)
+		`
+	_, err = tx.Exec(ctx, insertSQL, order.ID, "cooking", workerName)
 	if err != nil {
 		return err
 	}
@@ -158,6 +157,8 @@ func (r *Repository) OrderIsCooking(ctx context.Context, workerName string, id i
 		return err
 	}
 
+	order.ProcessedBy = &workerName
+	order.Status = "cooking"
 	return nil
 }
 
@@ -174,7 +175,7 @@ func (r *Repository) GetOrderStatus(ctx context.Context, orderID int) (string, e
 	return status, nil
 }
 
-func (r *Repository) OrderIsReady(ctx context.Context, workerName string, orderID int) error {
+func (r *Repository) OrderIsReady(ctx context.Context, workerName string, order *domain.Order) error {
 	tx, err := r.Conn.Begin(ctx)
 	if err != nil {
 		return err
@@ -188,12 +189,12 @@ func (r *Repository) OrderIsReady(ctx context.Context, workerName string, orderI
             completed_at = now()
         where id = $1
     `
-	res, err := tx.Exec(ctx, updateOrderSQL, orderID)
+	res, err := tx.Exec(ctx, updateOrderSQL, order.ID)
 	if err != nil {
 		return err
 	}
 	if res.RowsAffected() == 0 {
-		return fmt.Errorf("order %d not found", orderID)
+		return fmt.Errorf("order %d not found", order.ID)
 	}
 
 	// Increment worker’s orders_processed count
@@ -216,7 +217,7 @@ func (r *Repository) OrderIsReady(ctx context.Context, workerName string, orderI
 		insert into order_status_log (order_id, status, changed_by)
 		values ($1, $2, $3)
 	`
-	_, err = tx.Exec(ctx, insertSQL, orderID, "ready", workerName)
+	_, err = tx.Exec(ctx, insertSQL, order.ID, "ready", workerName)
 	if err != nil {
 		return err
 	}
@@ -224,6 +225,10 @@ func (r *Repository) OrderIsReady(ctx context.Context, workerName string, orderI
 	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
+	t := time.Now()
+	order.CompletedAt = &t
+	order.ProcessedBy = &workerName
+	order.Status = "ready"
 
 	return nil
 }
