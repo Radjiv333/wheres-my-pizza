@@ -3,6 +3,7 @@ package kitchen
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
@@ -58,6 +59,7 @@ func (k *KitchenService) Start(ctx context.Context) error {
 }
 
 func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Order, errCh chan error) {
+	fmt.Println("in getOrder")
 	for {
 		select {
 		case order := <-orderCh:
@@ -69,7 +71,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			if err != nil {
 				errCh <- err
 			}
-
+			fmt.Println("hello")
 			var cookingTime int
 			switch order.Type {
 			case "dine_in":
@@ -79,15 +81,32 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 			case "delivery":
 				cookingTime = 12
 			}
-			
+
 			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, newOrderStatus, k.kitchenFlags.WorkerName, cookingTime)
 			if err != nil {
 				errCh <- err
 			}
+
+			err = k.simulateWork(ctx, cookingTime)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (k *KitchenService) simulateWork(ctx context.Context, cookingTime int) {
+	ticker := time.NewTicker(time.Second)
+	counter := 0
+	fmt.Print("cooking")
+	for {
+		<-ticker.C
+		if counter == cookingTime {
+			fmt.Println()
+			break
+		}
+		fmt.Print(".")
+	}
+	fmt.Println("finished cooking!")
 }
 
 func (k *KitchenService) Stop(ctx context.Context) {

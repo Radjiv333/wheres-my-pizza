@@ -59,7 +59,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 	defer tx.Rollback(ctx)
 
 	// Generate order number inside the transaction
-	orderNumber, err := services.GenerateOrderNumber(ctx, tx)
+	order.Number, err = services.GenerateOrderNumber(ctx, tx)
 	if err != nil {
 		return "", err
 	}
@@ -81,19 +81,19 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		RETURNING id;
 	`
-	var orderID int
+	order.Status = "received"
 	err = tx.QueryRow(ctx, insertOrderSQL,
-		orderNumber,
+		order.Number,
 		order.CustomerName,
 		order.Type,
 		order.TableNumber,
 		order.DeliveryAddress,
 		order.TotalAmount,
 		order.Priority,
-		"received",        // initial status
+		order.Status,      // initial status
 		order.ProcessedBy, // can be null
 		order.CompletedAt, // can be null
-	).Scan(&orderID)
+	).Scan(&order.ID)
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +104,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 		VALUES ($1, $2, $3, $4);
 	`
 	for _, item := range order.Items {
-		if _, err := tx.Exec(ctx, insertItemSQL, orderID, item.Name, item.Quantity, item.Price); err != nil {
+		if _, err := tx.Exec(ctx, insertItemSQL, order.ID, item.Name, item.Quantity, item.Price); err != nil {
 			return "", err
 		}
 	}
@@ -114,7 +114,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 		INSERT INTO order_status_log (order_id, status, changed_by, notes)
 		VALUES ($1, $2, $3, $4);
 	`
-	if _, err := tx.Exec(ctx, insertStatusLogSQL, orderID, "received", order.ProcessedBy, "Order created"); err != nil {
+	if _, err := tx.Exec(ctx, insertStatusLogSQL, order.ID, "received", order.ProcessedBy, "Order created"); err != nil {
 		return "", err
 	}
 
@@ -122,7 +122,7 @@ func (r *Repository) InsertOrder(ctx context.Context, order *domain.Order) (stri
 		return "", err
 	}
 
-	return orderNumber, nil
+	return order.Number, nil
 }
 
 func (r *Repository) GetWorkerStatus(ctx context.Context, workerName string) (string, error) {

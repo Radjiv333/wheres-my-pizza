@@ -136,10 +136,14 @@ func (r *KitchenRabbit) handleMessages(msgs <-chan amqp.Delivery, orderCh chan<-
 
 		// After processing, acknowledge the message
 		orderCh <- order
+		fmt.Println("waiting")
 		err = <-errCh
+		fmt.Println("waited for err")
 		if err != nil {
+			fmt.Printf("error encountered: %v\n", err)
 			msg.Nack(false, true)
 		} else {
+			fmt.Println("im in ack")
 			msg.Ack(false)
 		}
 
@@ -175,6 +179,7 @@ func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order do
 	t2 := t1.Add(time.Duration(seconds) * time.Second)
 	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: order.Status, NewStatus: newOrderStatus, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
 	body, err := json.Marshal(msg)
+	fmt.Println(string(body))
 	if err != nil {
 		return fmt.Errorf("failed to marshal order message: %w", err)
 	}
@@ -200,6 +205,5 @@ func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order do
 		return fmt.Errorf("failed to publish order message: %w", err)
 	}
 
-	return nil
 	return nil
 }
