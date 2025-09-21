@@ -80,24 +80,50 @@ func SetupOrderChannel(ch *amqp.Channel) error {
 }
 
 func (r *OrderRabbit) handleReconnect(backoff time.Duration) {
-	errs := make(chan *amqp.Error)
-	r.Conn.NotifyClose(errs)
-	for e := range errs {
-		fmt.Printf("RabbitMQ connection closed: %v. Reconnecting...\n", e)
-		// Retry with backoff
+	for {
+		reason, ok := <-r.Conn.NotifyClose(make(chan *amqp.Error))
+		if !ok {
+			fmt.Print("rabbitmq connection closed")
+			break
+		}
+		fmt.Printf("rabbitmq connection closed unexpectedly, reason: %v", reason)
+
 		for {
+
 			time.Sleep(backoff)
 			if err := r.connect(); err != nil {
 				fmt.Printf("Reconnect failed: %v\n", err)
 				continue
 			}
-			// Restart notify channel
-			errs = make(chan *amqp.Error)
-			r.Conn.NotifyClose(errs)
+
 			fmt.Println("Reconnect is succefull")
 			break
 		}
+
 	}
+	// errs := make(chan *amqp.Error)
+	// reason, ok := <-r.Conn.NotifyClose(errs)
+	// if !ok {
+	// 	fmt.Println("rabbitmq connection closed")
+	// 	break
+	// }
+	// log.Printf("rabbitmq connection closed unexpectedly, reason: %v", reason)
+	// for e := range errs {
+	// 	fmt.Printf("RabbitMQ connection closed: %v. Reconnecting...\n", e)
+	// 	// Retry with backoff
+	// 	for {
+	// 		time.Sleep(backoff)
+	// 		if err := r.connect(); err != nil {
+	// 			fmt.Printf("Reconnect failed: %v\n", err)
+	// 			continue
+	// 		}
+	// 		// Restart notify channel
+	// 		errs = make(chan *amqp.Error)
+	// 		r.Conn.NotifyClose(errs)
+	// 		fmt.Println("Reconnect is succefull")
+	// 		break
+	// 	}
+	// }
 }
 
 func (r *OrderRabbit) PublishOrderMessage(ctx context.Context, order domain.Order) error {

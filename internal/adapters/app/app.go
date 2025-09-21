@@ -51,6 +51,7 @@ func Order(ctx context.Context, logger *logger.Logger, repo *repository.Reposito
 
 func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc, cfg config.Config) {
 	// Initializing rabbitmq for kitchen
+	// reconnectCh := make(chan)
 	kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName, flags.Kitchen.Prefetch, logger, cfg)
 	if err != nil {
 		// Gracefull shutdown
