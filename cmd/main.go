@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
 	"wheres-my-pizza/internal/adapters/app"
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/core/services"
@@ -44,12 +45,12 @@ func main() {
 
 	switch flags.Mode {
 	case "order-service":
-		app.Order(ctx, logger, repo, flags, stop)
+		app.Order(ctx, logger, repo, flags, stop, *cfg)
 	case "kitchen-worker":
-		app.Kitchen(ctx, logger, repo, flags, stop)
+		app.Kitchen(ctx, logger, repo, flags, stop, *cfg)
 	case "tracking-service":
 		app.Tracking(ctx, logger, repo, flags, stop)
 	case "notification-subscriber":
-		app.Notification(ctx, logger)
+		app.Notification(ctx, logger, *cfg)
 	}
 }

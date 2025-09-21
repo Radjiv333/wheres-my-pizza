@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -24,8 +25,11 @@ type OrderRabbit struct {
 	logger     *logger.Logger
 }
 
-func NewOrderRabbit() (*OrderRabbit, error) {
-	r := &OrderRabbit{url: "amqp://guest:guest@localhost:5672/"}
+func NewOrderRabbit(cfg config.Config) (*OrderRabbit, error) {
+	rabbitURL := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+		cfg.RabbitMQ.User, cfg.RabbitMQ.Password, cfg.RabbitMQ.Host,
+		cfg.RabbitMQ.Port)
+	r := &OrderRabbit{url: rabbitURL}
 	if err := r.connect(); err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -32,10 +33,14 @@ type KitchenRabbit struct {
 	workerName string
 	logger     *logger.Logger
 	qos        int
+	url        string
 }
 
-func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *logger.Logger) (*KitchenRabbit, error) {
-	rabbit := &KitchenRabbit{qos: qos, logger: logger, workerName: workerName, workerType: workerType}
+func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *logger.Logger, cfg config.Config) (*KitchenRabbit, error) {
+	rabbitURL := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+		cfg.RabbitMQ.User, cfg.RabbitMQ.Password, cfg.RabbitMQ.Host,
+		cfg.RabbitMQ.Port)
+	rabbit := &KitchenRabbit{qos: qos, logger: logger, workerName: workerName, workerType: workerType, url: rabbitURL}
 	if err := rabbit.connect(); err != nil {
 		return nil, err
 	}
@@ -49,7 +54,7 @@ func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *l
 func (r *KitchenRabbit) connect() error {
 	start := time.Now()
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial(r.url)
 	if err != nil {
 		return err
 	}

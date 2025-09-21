@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -18,10 +19,14 @@ type NotificationRabbit struct {
 	Ch         *amqp.Channel
 	DurationMs time.Duration
 	logger     *logger.Logger
+	url string
 }
 
-func NewNotificationRabbit(logger *logger.Logger) (*NotificationRabbit, error) {
-	rabbit := &NotificationRabbit{logger: logger}
+func NewNotificationRabbit(logger *logger.Logger, cfg config.Config) (*NotificationRabbit, error) {
+	rabbitURL := fmt.Sprintf("amqp://%s:%s@%s:%d/",
+		cfg.RabbitMQ.User, cfg.RabbitMQ.Password, cfg.RabbitMQ.Host,
+		cfg.RabbitMQ.Port)
+	rabbit := &NotificationRabbit{logger: logger, url: rabbitURL}
 	if err := rabbit.connect(); err != nil {
 		return nil, err
 	}

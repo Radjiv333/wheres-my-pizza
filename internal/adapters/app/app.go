@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/microservices/kitchen"
 	"wheres-my-pizza/internal/adapters/microservices/notifications"
@@ -12,12 +13,13 @@ import (
 	"wheres-my-pizza/internal/adapters/microservices/tracking"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
 	"wheres-my-pizza/internal/core/services"
+	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
 )
 
-func Order(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc) {
+func Order(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc, cfg config.Config) {
 	// Initializing rabbitmq for orders
-	orderRabbit, err := rabbitmq.NewOrderRabbit()
+	orderRabbit, err := rabbitmq.NewOrderRabbit(cfg)
 	if err != nil {
 		// Gracefull shutdown
 		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -48,9 +50,9 @@ func Order(ctx context.Context, logger *logger.Logger, repo *repository.Reposito
 	orderService.Stop(ctx, &server)
 }
 
-func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc) {
+func Kitchen(ctx context.Context, logger *logger.Logger, repo *repository.Repository, flags services.Flags, stop context.CancelFunc, cfg config.Config) {
 	// Initializing rabbitmq for kitchen
-	kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName, flags.Kitchen.Prefetch, logger)
+	kitchenRabbit, err := rabbitmq.NewKitchenRabbit(flags.Kitchen.OrderTypes, flags.Kitchen.WorkerName, flags.Kitchen.Prefetch, logger, cfg)
 	if err != nil {
 		// Gracefull shutdown
 		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
@@ -99,9 +101,9 @@ func Tracking(ctx context.Context, logger *logger.Logger, repo *repository.Repos
 	trackingService.Stop(ctx, &server)
 }
 
-func Notification(ctx context.Context, logger *logger.Logger) {
+func Notification(ctx context.Context, logger *logger.Logger, cfg config.Config) {
 	// Initializing rabbitmq for orders
-	notifRabbit, err := rabbitmq.NewNotificationRabbit(logger)
+	notifRabbit, err := rabbitmq.NewNotificationRabbit(logger, cfg)
 	if err != nil {
 		// Gracefull shutdown
 		logger.Error("", "rabbitmq_connection_failed", "Connection to RabbitMQ failed", err, nil)
