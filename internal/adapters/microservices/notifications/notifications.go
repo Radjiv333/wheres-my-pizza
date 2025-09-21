@@ -26,8 +26,6 @@ func (n *NotificationService) Start(ctx context.Context) error {
 
 func (n *NotificationService) Stop(ctx context.Context) {
 	<-ctx.Done()
-
-	n.rabbit.Ch.Close()
-	n.rabbit.Conn.Close()
+	n.rabbit.Close()
 	log.Println("shutting down gracefully...")
 }

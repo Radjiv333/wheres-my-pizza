@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
-
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
@@ -220,7 +218,7 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, 
 			nil,       // args
 		)
 		if err != nil {
-			log.Fatalf("Failed to register a consumer for queue %s: %s", queueName, err)
+			return nil, err
 		}
 
 		go r.handleMessages(msgs, orderCh, errCh) // Start a goroutine for consuming messages from each queue

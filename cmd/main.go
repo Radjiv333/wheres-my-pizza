@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
 	"wheres-my-pizza/internal/adapters/app"
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/core/services"

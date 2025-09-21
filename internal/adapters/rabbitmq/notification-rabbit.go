@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/pkg/config"
 	"wheres-my-pizza/pkg/logger"
@@ -19,7 +18,7 @@ type NotificationRabbit struct {
 	Ch         *amqp.Channel
 	DurationMs time.Duration
 	logger     *logger.Logger
-	url string
+	url        string
 }
 
 func NewNotificationRabbit(logger *logger.Logger, cfg config.Config) (*NotificationRabbit, error) {
@@ -157,5 +156,14 @@ func (r *NotificationRabbit) ConsumeMessages(ctx context.Context) error {
 			log.Println("Notification Service shutting down...")
 			return nil
 		}
+	}
+}
+
+func (r *NotificationRabbit) Close() {
+	if r.Ch != nil {
+		r.Ch.Close()
+	}
+	if r.Conn != nil {
+		r.Conn.Close()
 	}
 }
