@@ -16,6 +16,7 @@ import (
 )
 
 func main() {
+	// Loading config
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		fmt.Printf("cannot load the config properly: %v\n", err)
@@ -25,6 +26,7 @@ func main() {
 	// Parsing flags
 	flags, err := services.FlagParse()
 	if err != nil {
+		fmt.Println(err)
 		services.AppUsage()
 		os.Exit(1)
 	}
@@ -49,7 +51,7 @@ func main() {
 		app.Kitchen(ctx, logger, repo, flags, stop)
 	case "tracking-service":
 		app.Tracking(ctx, logger, repo, flags, stop)
-	case "notification-service":
+	case "notification-subscriber":
 		app.Notification(ctx, logger)
 	}
 }

@@ -90,7 +90,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 				cookingTime = 12
 			}
 
-			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "cooking", k.kitchenFlags.WorkerName, cookingTime)
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "received", k.kitchenFlags.WorkerName, cookingTime)
 			if err != nil {
 				errCh <- err
 			}
@@ -103,7 +103,7 @@ func (k *KitchenService) getOrder(ctx context.Context, orderCh <-chan domain.Ord
 				errCh <- err
 			}
 
-			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "ready", k.kitchenFlags.WorkerName, cookingTime)
+			err = k.rabbit.PublishStatusUpdateMessage(ctx, order, "cooking", k.kitchenFlags.WorkerName, cookingTime)
 			errCh <- err
 		case <-ctx.Done():
 			return

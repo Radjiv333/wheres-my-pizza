@@ -48,7 +48,7 @@ func CheckFlags(mode, workerName, orderTypes string, port, maxConcurrent, heartb
 		}
 	case "notification-subscriber":
 	default:
-		errMessage := fmt.Sprintf("invalid mode' value: %s", mode)
+		errMessage := fmt.Sprintf("invalid 'mode' value: %s", mode)
 		return errors.New(errMessage)
 	}
 	return nil

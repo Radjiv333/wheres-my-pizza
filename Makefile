@@ -11,6 +11,9 @@ kitchen:
 track:
 	@go run ./cmd/main.go --mode="tracking-service" --worker-name="Bally"
 
+notif:
+	@go run ./cmd/main.go --mode="notification-subscriber"
+
 build:
 	@echo "Building the project..."
 	go build -o $(PROJECT_NAME) ./cmd/main.go

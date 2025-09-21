@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -96,12 +97,10 @@ func (r *NotificationRabbit) ConsumeMessages(ctx context.Context) error {
 		return err
 	}
 
-	log.Println("📡 Notification Service is running...")
-
 	for {
 		select {
 		case d := <-msgs:
-			var msg domain.OrderDetailsResponse
+			var msg domain.StatusUpdateMessage
 
 			err := json.Unmarshal(d.Body, &msg)
 			if err != nil {
@@ -109,7 +108,10 @@ func (r *NotificationRabbit) ConsumeMessages(ctx context.Context) error {
 				d.Nack(false, false) // reject, don’t requeue
 				continue
 			}
+
 			// Acknowledge message
+			r.logger.Info("", "notification_received", "Status update message is received", map[string]interface{}{"details": map[string]interface{}{"order_number": msg.OrderNumber, "new_status": msg.NewStatus}})
+			fmt.Printf("Notification for order %s: Status changed from '%s' to '%s' by %s.\n", msg.OrderNumber, msg.OldStatus, msg.NewStatus, msg.ChangedBy)
 			d.Ack(false)
 		case <-ctx.Done():
 			log.Println("Notification Service shutting down...")

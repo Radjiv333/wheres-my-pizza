@@ -77,6 +77,7 @@ func FlagParse() (Flags, error) {
 		orderFlags := OrderFlags{Port: *port}
 		return Flags{Mode: *mode, Order: orderFlags}, nil
 	case "notification-subscriber":
+		return Flags{Mode: *mode}, nil
 	default:
 		// ERROR LOGGER
 		fmt.Println("Something is wrong with mode")

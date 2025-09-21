@@ -105,10 +105,11 @@ func Notification(ctx context.Context, logger *logger.Logger) {
 	notifRabbit, err := rabbitmq.NewNotificationRabbit(logger)
 	if err != nil {
 		// Gracefull shutdown
+		logger.Error("", "rabbitmq_connection_failed", "Connection to RabbitMQ failed", err, nil)
 		fmt.Printf("cannot connect to rabbitmq: %v\n", err)
 		os.Exit(1)
 	}
-	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"order_topic", map[string]interface{}{"duration_ms": notifRabbit.DurationMs})
+	logger.Info("", "rabbitmq_connected", "Connected to RabbitMQ exchange "+"notifications_fanout", map[string]interface{}{"duration_ms": notifRabbit.DurationMs})
 
 	// Initializing Order-service
 	notifService := notifications.NewNotificationService(notifRabbit, logger)

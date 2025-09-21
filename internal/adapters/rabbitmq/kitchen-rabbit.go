@@ -33,15 +33,6 @@ type KitchenRabbit struct {
 	logger     *logger.Logger
 }
 
-type StatusUpdateMessage struct {
-	OrderNumber         string    `json:"order_number"`
-	OldStatus           string    `json:"old_status"`
-	NewStatus           string    `json:"new_status"`
-	ChangedBy           string    `json:"changed_by"`
-	TimeStamp           time.Time `json:"timestamp"`
-	EstimatedCompletion time.Time `json:"estimated_completion"`
-}
-
 func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *logger.Logger) (*KitchenRabbit, error) {
 	start := time.Now()
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -96,7 +87,7 @@ func setupKitchenChannel(ch *amqp.Channel, qos int) error {
 		return err
 	}
 
-	// Dead letter queue
+	// Dead letter exchange
 	err = ch.ExchangeDeclare(
 		"orders_dlx", // DLX name
 		"topic",      // exchange type
@@ -198,7 +189,7 @@ func (r *KitchenRabbit) ConsumeMessages(ctx context.Context, workerName string, 
 func (r *KitchenRabbit) PublishStatusUpdateMessage(ctx context.Context, order domain.Order, oldOrderStatus, workerName string, seconds int) error {
 	t1 := time.Now()
 	t2 := t1.Add(time.Duration(seconds) * time.Second)
-	msg := StatusUpdateMessage{OrderNumber: order.Number, OldStatus: oldOrderStatus, NewStatus: order.Status, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
+	msg := domain.StatusUpdateMessage{OrderNumber: order.Number, OldStatus: oldOrderStatus, NewStatus: order.Status, ChangedBy: workerName, TimeStamp: t1, EstimatedCompletion: t2}
 	body, err := json.Marshal(msg)
 	fmt.Println(string(body))
 	if err != nil {
