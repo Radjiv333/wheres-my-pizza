@@ -3,12 +3,12 @@ package domain
 import "time"
 
 type Order struct {
-	ID              int       `json:"id"` // serial
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	Number          string    `json:"number"` // i dont know what it is
-	CustomerName    string    `json:"customer_name"`
-	Type            string    `json:"order_type"` // dine_in, takeout, delivery
+	ID              int         `json:"id"` // serial
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+	Number          string      `json:"number"` // i dont know what it is
+	CustomerName    string      `json:"customer_name"`
+	Type            string      `json:"order_type"`       // dine_in, takeout, delivery
 	TableNumber     *int        `json:"table_number"`     // nullable
 	DeliveryAddress *string     `json:"delivery_address"` // nullable
 	TotalAmount     float64     `json:"total_amount"`

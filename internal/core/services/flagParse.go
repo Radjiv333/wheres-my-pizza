@@ -14,10 +14,12 @@ type KitchenFlags struct {
 	HeartbeatInterval int
 	Prefetch          int
 }
+
 type OrderFlags struct {
 	Port          int
 	MaxConcurrent int
 }
+
 type Flags struct {
 	Mode    string
 	Order   OrderFlags

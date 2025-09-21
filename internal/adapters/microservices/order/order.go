@@ -6,14 +6,12 @@ import (
 	"log"
 	"net/http"
 	"time"
-
 	"wheres-my-pizza/internal/adapters/db/repository"
 	"wheres-my-pizza/internal/adapters/rabbitmq"
-	"wheres-my-pizza/pkg/logger"
-
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/internal/core/ports"
 	"wheres-my-pizza/internal/core/services"
+	"wheres-my-pizza/pkg/logger"
 )
 
 type OrderService struct {

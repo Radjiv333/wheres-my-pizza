@@ -9,10 +9,10 @@ import (
 
 type Config struct {
 	Database struct {
-		Host     string
-		Port     int
-		User     string
-		Password string
+		Host         string
+		Port         int
+		User         string
+		Password     string
 		DatabaseName string
 	}
 	RabbitMQ struct {

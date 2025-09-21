@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-
 	"wheres-my-pizza/internal/core/domain"
 )
 
@@ -19,7 +18,6 @@ func PostOrder(w http.ResponseWriter, r *http.Request) {
 
 	responseByte, err := json.Marshal(response)
 	if err != nil {
-		
 	}
 	w.Write(responseByte)
 	w.WriteHeader(http.StatusOK)

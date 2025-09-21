@@ -3,7 +3,6 @@ package notifications
 import (
 	"context"
 	"log"
-
 	"wheres-my-pizza/internal/adapters/rabbitmq"
 	"wheres-my-pizza/pkg/logger"
 )

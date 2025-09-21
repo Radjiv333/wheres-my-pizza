@@ -2,7 +2,6 @@ package ports
 
 import (
 	"context"
-
 	"wheres-my-pizza/internal/core/domain"
 )
 
