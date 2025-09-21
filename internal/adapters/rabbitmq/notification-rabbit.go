@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"time"
+
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/pkg/logger"
 
@@ -20,26 +21,61 @@ type NotificationRabbit struct {
 }
 
 func NewNotificationRabbit(logger *logger.Logger) (*NotificationRabbit, error) {
+	rabbit := &NotificationRabbit{logger: logger}
+	if err := rabbit.connect(); err != nil {
+		return nil, err
+	}
+
+	// start reconnect watcher
+	go rabbit.handleReconnect(5 * time.Second)
+
+	return rabbit, nil
+}
+
+func (r *NotificationRabbit) connect() error {
 	start := time.Now()
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, err
+		conn.Close()
+		return err
+	}
+	if err := setupNotificationChannel(ch); err != nil {
+		conn.Close()
+		return err
 	}
 
-	err = setupNotificationChannel(ch)
-	if err != nil {
-		return nil, err
+	r.Conn = conn
+	r.Ch = ch
+	r.DurationMs = time.Duration(time.Since(start).Milliseconds())
+
+	r.logger.Info("rabbitmq", "connection_established", "Connected to RabbitMQ (notification)", nil)
+	return nil
+}
+
+func (r *NotificationRabbit) handleReconnect(backoff time.Duration) {
+	errs := make(chan *amqp.Error)
+	r.Conn.NotifyClose(errs)
+	for e := range errs {
+		fmt.Printf("RabbitMQ connection closed: %v. Reconnecting...\n", e)
+		// Retry with backoff
+		for {
+			time.Sleep(backoff)
+			if err := r.connect(); err != nil {
+				fmt.Printf("Reconnect failed: %v\n", err)
+				continue
+			}
+			// Restart notify channel
+			errs = make(chan *amqp.Error)
+			r.Conn.NotifyClose(errs)
+			fmt.Println("Reconnect is succefull")
+			break
+		}
 	}
-
-	durationMs := time.Since(start).Milliseconds()
-
-	rabbit := &NotificationRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs), logger: logger}
-	return rabbit, nil
 }
 
 func setupNotificationChannel(ch *amqp.Channel) error {

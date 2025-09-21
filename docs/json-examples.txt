@@ -6,3 +6,13 @@
     { "name": "Caesar Salad", "quantity": 1, "price": 8.99 }
   ]
 }
+
+{
+  "customer_name": "John Doe",
+  "order_type": "dine_in",
+  "table_number": 12,
+  "items": [
+    { "name": "Margherita Pizza", "quantity": 1, "price": 15.99 },
+    { "name": "Caesar Salad", "quantity": 1, "price": 8.99 }
+  ]
+}

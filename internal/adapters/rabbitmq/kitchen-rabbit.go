@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"time"
+
 	"wheres-my-pizza/internal/core/domain"
 	"wheres-my-pizza/pkg/logger"
 
@@ -30,29 +31,67 @@ type KitchenRabbit struct {
 	workerType []string
 	workerName string
 	logger     *logger.Logger
+	qos        int
 }
 
 func NewKitchenRabbit(workerType []string, workerName string, qos int, logger *logger.Logger) (*KitchenRabbit, error) {
+	rabbit := &KitchenRabbit{qos: qos, logger: logger, workerName: workerName, workerType: workerType}
+	if err := rabbit.connect(); err != nil {
+		return nil, err
+	}
+
+	// start reconnect watcher
+	go rabbit.handleReconnect(5 * time.Second)
+
+	return rabbit, nil
+}
+
+func (r *KitchenRabbit) connect() error {
 	start := time.Now()
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
-		return nil, err
+		return err
 	}
-
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, err
+		conn.Close()
+		return err
+	}
+	if err := setupKitchenChannel(ch, r.qos); err != nil {
+		conn.Close()
+		return err
 	}
 
-	err = setupKitchenChannel(ch, qos)
-	if err != nil {
-		return nil, err
+	r.Conn = conn
+	r.Ch = ch
+	r.DurationMs = time.Duration(time.Since(start).Milliseconds())
+
+	r.logger.Info("rabbitmq", "connection_established", "Connected to RabbitMQ", map[string]interface{}{
+		"worker_name": r.workerName,
+	})
+	return nil
+}
+
+func (r *KitchenRabbit) handleReconnect(backoff time.Duration) {
+	errs := make(chan *amqp.Error)
+	r.Conn.NotifyClose(errs)
+	for e := range errs {
+		fmt.Printf("RabbitMQ connection closed: %v. Reconnecting...\n", e)
+
+		for {
+			time.Sleep(backoff)
+			if err := r.connect(); err != nil {
+				fmt.Printf("Reconnect failed: %v\n", err)
+				continue
+			}
+			// Restart notify channel
+			errs = make(chan *amqp.Error)
+			r.Conn.NotifyClose(errs)
+			fmt.Println("Reconnect is succefull")
+			break
+		}
 	}
-
-	durationMs := time.Since(start).Milliseconds()
-
-	rabbit := &KitchenRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs), workerType: workerType, workerName: workerName, logger: logger}
-	return rabbit, nil
 }
 
 func setupKitchenChannel(ch *amqp.Channel, qos int) error {

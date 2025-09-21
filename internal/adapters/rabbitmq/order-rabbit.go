@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
 	"wheres-my-pizza/internal/core/domain"
+	"wheres-my-pizza/pkg/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -18,26 +20,43 @@ type OrderRabbit struct {
 	Conn       *amqp.Connection
 	Ch         *amqp.Channel
 	DurationMs time.Duration
+	url        string
+	logger     *logger.Logger
 }
 
 func NewOrderRabbit() (*OrderRabbit, error) {
-	start := time.Now()
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	if err != nil {
+	r := &OrderRabbit{url: "amqp://guest:guest@localhost:5672/"}
+	if err := r.connect(); err != nil {
 		return nil, err
+	}
+	// Watch for close signals
+	go r.handleReconnect(5 * time.Second)
+	return r, nil
+}
+
+func (r *OrderRabbit) connect() error {
+	start := time.Now()
+	conn, err := amqp.Dial(r.url)
+	if err != nil {
+		return err
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		return nil, err
+		conn.Close()
+		return err
 	}
 
-	SetupOrderChannel(ch)
+	if err := SetupOrderChannel(ch); err != nil {
+		conn.Close()
+		return err
+	}
 
-	durationMs := time.Since(start).Milliseconds()
+	r.Conn = conn
+	r.Ch = ch
+	r.DurationMs = time.Since(start)
 
-	rabbit := &OrderRabbit{Conn: conn, Ch: ch, DurationMs: time.Duration(durationMs)}
-	return rabbit, nil
+	return nil
 }
 
 func SetupOrderChannel(ch *amqp.Channel) error {
@@ -55,6 +74,27 @@ func SetupOrderChannel(ch *amqp.Channel) error {
 	}
 
 	return nil
+}
+
+func (r *OrderRabbit) handleReconnect(backoff time.Duration) {
+	errs := make(chan *amqp.Error)
+	r.Conn.NotifyClose(errs)
+	for e := range errs {
+		fmt.Printf("RabbitMQ connection closed: %v. Reconnecting...\n", e)
+		// Retry with backoff
+		for {
+			time.Sleep(backoff)
+			if err := r.connect(); err != nil {
+				fmt.Printf("Reconnect failed: %v\n", err)
+				continue
+			}
+			// Restart notify channel
+			errs = make(chan *amqp.Error)
+			r.Conn.NotifyClose(errs)
+			fmt.Println("Reconnect is succefull")
+			break
+		}
+	}
 }
 
 func (r *OrderRabbit) PublishOrderMessage(ctx context.Context, order domain.Order) error {
@@ -81,13 +121,17 @@ func (r *OrderRabbit) PublishOrderMessage(ctx context.Context, order domain.Orde
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to publish order message: %w", err)
+		return err
 	}
 
 	return nil
 }
 
 func (r *OrderRabbit) Close() {
-	r.Ch.Close()
-	r.Conn.Close()
+	if r.Ch != nil {
+		r.Ch.Close()
+	}
+	if r.Conn != nil {
+		r.Conn.Close()
+	}
 }
